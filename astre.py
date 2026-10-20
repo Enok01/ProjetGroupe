@@ -3,8 +3,7 @@ class Astre:
     def __init__(self, nom, masse, couleur, taille, rayon, actif):
         self.nom = nom
         self.masse = masse
-        self.couleur = couleur 
-        self.taille = taille
+        self.couleur = couleur
         self.rayon = rayon
         self.actif = actif
     
