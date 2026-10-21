@@ -7,6 +7,7 @@ class GraphiqueFrame(ctk.CTkFrame):
     """
     Le graphique.
     """
+
     def __init__(self, master, simulateur):
         super().__init__(master=master)
         self.simulateur = simulateur
@@ -20,7 +21,6 @@ class GraphiqueFrame(ctk.CTkFrame):
     @property
     def temps(self):
         return self.simulateur.temps()
-
 
     def redessiner(self) -> None:
         """
@@ -44,9 +44,7 @@ class GraphiqueFrame(ctk.CTkFrame):
                 x, y = projectile.position(self.temps)
                 self.ax.scatter(x, y, projectile.taille, projectile.couleur)
 
-
         self.canvas.draw_idle()
-
 
     def afficher_libre(self):
         """
