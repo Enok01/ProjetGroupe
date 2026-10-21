@@ -10,13 +10,17 @@ class GraphiqueFrame(ctk.CTkFrame):
     def __init__(self, master, simulateur):
         super().__init__(master=master)
         self.simulateur = simulateur
-        self.temps = 0 # TODO: remplacer par qqch qui fait plus de sens
 
         # Création des composantes MatPlotLib
         self.fig = Figure()
         self.ax = self.fig.add_subplot(111)
         self.canvas = FigureCanvasTkAgg(self.fig, master=self)
         self.canvas.get_tk_widget().pack(fill="both", expand=True)
+
+    @property
+    def temps(self):
+        return self.simulateur.temps()
+
 
     def redessiner(self) -> None:
         """
@@ -37,7 +41,7 @@ class GraphiqueFrame(ctk.CTkFrame):
         for projectile in self.simulateur.projectiles:
             if projectile.etat == "actif":
                 # Marqueur de position actuelle
-                x, y = projectile.position(self.simulateur.temps())
+                x, y = projectile.position(self.temps)
                 self.ax.scatter(x, y, projectile.taille, projectile.couleur)
 
 
