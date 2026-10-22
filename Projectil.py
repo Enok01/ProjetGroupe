@@ -56,7 +56,34 @@ class Projectile(Astre):
                     position (list): Position actuelle du projectile [x, y].
                     vitesse (list): Vitesse actuelle du projectile [vx, vy].
                 """
+
                 nouvelle_ligne = np.array([[*pos, *vit]])  # Créer une nouvelle ligne avec la position et la vitesse
                 self.historique = np.vstack((self.historique, nouvelle_ligne))  # Ajouter la ligne à l'historique
-        
 
+                """ 
+                est ce que je dois mettre à jour l'état du projectile en fonction de la durée de vie?
+                ou la simulation va gérer ça? je pense que c'est la simulation qui va gérer ça, 
+                donc je ne vais pas le faire ici:C’est la Simulation qui compare le temps actuel à t_apparition  + duree_vie, 
+                qui met etat = "expire" et qui arrête ensuite d’appeler ajouter_etat
+                
+                """
+
+            def position(self, t):
+                """
+                Calcule la position du projectile à un instant donné t.
+
+                Args:
+                    t (float): Temps de la simulation, en jours (1 pas = 1 journée)
+
+                Returns:
+                    np.array: Position du projectile à l'instant t.
+                """
+
+                if t < self.temps_apparition:
+                    return self.pos0  # Le projectile n'est pas encore apparu, retourne la position initiale
+                ligne = int(t - self.temps_apparition)  # Calculer l'indice de la ligne dans l'historique
+                
+                if ligne < len(self.historique): 
+                    return self.historique[ligne, :2]  # Retourner la position à l'instant t
+                
+                return self.historique[-1, :2]  # Retourner la dernière position connue pour eviter une erreur out of range 
