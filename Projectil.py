@@ -87,3 +87,25 @@ class Projectile(Astre):
                     return self.historique[ligne, :2]  # Retourner la position à l'instant t
                 
                 return self.historique[-1, :2]  # Retourner la dernière position connue pour eviter une erreur out of range 
+
+
+            def etat_a(self, pas):
+                """
+                Retourne l'état complet du projectile à un pas donné de la simulation.
+
+                Args:
+                pas (int): Pas de la simulation (1 pas = 1 journée).
+
+                Returns:
+                np.ndarray: [x, y, vx, vy]. Retourne l'état de départ avant l'apparition
+                et le dernier état connu si le pas dépasse les pas calculés.
+        
+                """
+                if pas < self.temps_apparition:
+                    return self.historique[0]  # Retourne l'état initial avant l'apparition
+                
+                ligne = int(pas - self.t_apparition)  # Nombre de pas depuis l'apparition
+
+                if ligne < len(self.historique):
+                    return self.historique[ligne]  # Retourne ligne conplete
+                return self.historique[-1]  # Retourne le dernier état connu si le pas dépasse les pas calculés
