@@ -35,7 +35,7 @@ class Projectile(Astre):
         self.etat = "actif"   # État du projectile : peut être actif ou inactif, mais obligatoirement actifs sa création, question a poser...: Que faire si on réinitialise mais que il avait été désactivé par le gestionnaire d'objets ?
         self.cible = None  # Cible du projectile?: question a poser...
 
-        def reinitialiser(self):
+    def reinitialiser(self):
             """
              hypothèses: lors de la réinitialisation on recommence la simulation depuis 
              le début, donc je vais supprimer l'historique, remettre son état à l'état de base 
@@ -48,19 +48,18 @@ class Projectile(Astre):
             self.etat = "actif"  # Réinitialiser l'état à actif
             self.cible = None  # Réinitialiser la cible à None
 
-            def ajouter_etat(self, pos, vit):
-                """
-                Ajoute un nouvel état du projectile à l'historique.
-
+    def ajouter_etat(self, pos, vit):
+            """
+            Ajoute un nouvel état du projectile à l'historique.
                 Args:
                     position (list): Position actuelle du projectile [x, y].
                     vitesse (list): Vitesse actuelle du projectile [vx, vy].
                 """
 
-                nouvelle_ligne = np.array([[*pos, *vit]])  # Créer une nouvelle ligne avec la position et la vitesse
-                self.historique = np.vstack((self.historique, nouvelle_ligne))  # Ajouter la ligne à l'historique
+            nouvelle_ligne = np.array([[*pos, *vit]])  # Créer une nouvelle ligne avec la position et la vitesse
+            self.historique = np.vstack((self.historique, nouvelle_ligne))  # Ajouter la ligne à l'historique
 
-                """ 
+            """ 
                 est ce que je dois mettre à jour l'état du projectile en fonction de la durée de vie?
                 ou la simulation va gérer ça? je pense que c'est la simulation qui va gérer ça, 
                 donc je ne vais pas le faire ici:C’est la Simulation qui compare le temps actuel à t_apparition  + duree_vie, 
@@ -68,7 +67,7 @@ class Projectile(Astre):
                 
                 """
 
-            def position(self, t):
+    def position(self, t):
                 """
                 Calcule la position du projectile à un instant donné t.
 
@@ -89,7 +88,7 @@ class Projectile(Astre):
                 return self.historique[-1, :2]  # Retourner la dernière position connue pour eviter une erreur out of range 
 
 
-            def etat_a(self, pas):
+    def etat_a(self, pas):
                 """
                 Retourne l'état complet du projectile à un pas donné de la simulation.
 
@@ -104,7 +103,7 @@ class Projectile(Astre):
                 if pas < self.temps_apparition:
                     return self.historique[0]  # Retourne l'état initial avant l'apparition
                 
-                ligne = int(pas - self.t_apparition)  # Nombre de pas depuis l'apparition
+                ligne = int(pas - self.temps_apparition)  # Nombre de pas depuis l'apparition
 
                 if ligne < len(self.historique):
                     return self.historique[ligne]  # Retourne ligne conplete
