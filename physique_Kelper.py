@@ -13,7 +13,7 @@ def prochaine_pos_vit_du_projectile(pos_projectile: list[float], dt: float, vite
     
     Args:
         pos_projectile (list[float]): _la position x et y du projectille à ce moment (en UA)_
-        dt (float): _pas de temps en jours (en j)_
+        dt (float): _pas de temps (en j)_
         vitesse_proj (list[float]): _vitesse x et y du projectille (en UA/j)_
         liste_astre (list[Astre_Fixe]): _liste qui contien tout les astres fixes du systeme_
     
@@ -50,27 +50,43 @@ def prochaine_pos_vit_du_projectile(pos_projectile: list[float], dt: float, vite
 ###### a continuer 
 ###
 def creer_liste_position_du_projectile(proj: Projectile, liste_astre: list[Astre_Fixe], dt: float, t_final: float):
-    """_cree une liste de position tout le long du trajet_
-    """
+    # creer une liste de position uqe le projectile a fait
     pos = proj.pos0
     vit = proj.vit0
 
     liste_position = [pos]
     for _ in range(t_final//dt + (0 if t_final%dt != 0 else + 1)):       
         
-        if est_en_contacte(pos, liste_astre):
-            return # retourne letat je pense  et que c la fin 
+        if est_en_contacte(pos, liste_astre) != None:
+            
+            return # retourne letat je pense et que c la fin 
             
         pos, vit = prochaine_pos_vit_du_projectile(pos, dt, vit, liste_astre)
         
 
+
+
+
 def est_en_contacte(pos: list[float], liste_astre: list[Astre_Fixe]):
-    """ _verifi sil est en contact ou non_ """
-    for astre in liste_astre:
-        ########### ne marche pas il faut le calculer a partir dun cercle pas dun carrer !!!
-        if (-astre.rayon[0] + astre.position[0] < pos[0] and pos[0] < astre.rayon[0] + astre.position[0]) and (-astre.rayon[1] + astre.position[1] < pos[1] and pos[1] < astre.rayon[1] + astre.position[1])
-            return True ## devrais renvoyer lastre toucher
-    return False
+    
+    """_verifi s'il est en contact ou non_
+
+    Returns:
+        _type_: _l'index de lastre toucher ou None sil y ne a pas_
+    """    
+    
+    """ _ return l'index de lastre toucher ou None sil y ne a pas_ """
+    for index_astre in range(len(liste_astre)):
+        
+        astre = liste_astre[index_astre]
+        
+        # determine le rayon a la deux de la distance entre lastre et le projectile avec pytagore
+        distance_entre_eux = (pos[0] - astre.position[0]) ** 2 + (pos[1] - astre.position[1]) ** 2
+        rayon_astre = astre.rayon[0] ** 2 + astre.rayon[1]** 2    
+        
+        if distance_entre_eux < rayon_astre:
+            return index_astre ## devrais renvoyer lastre toucher
+    return None
 
 
 ###
