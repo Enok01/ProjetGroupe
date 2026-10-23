@@ -1,6 +1,7 @@
 import customtkinter as ctk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from matplotlib.figure import Figure
+import matplotlib.pyplot as plt
+from lib import Simulation  # placeholder
 
 
 class GraphiqueFrame(ctk.CTkFrame):
@@ -8,19 +9,19 @@ class GraphiqueFrame(ctk.CTkFrame):
     Le graphique.
     """
 
-    def __init__(self, master, simulateur):
+    def __init__(self, master: App, simulateur):
         super().__init__(master=master)
         self.simulateur = simulateur
 
         # Création des composantes MatPlotLib
-        self.fig = Figure()
+        self.fig = plt.figure()
         self.ax = self.fig.add_subplot(111)
         self.canvas = FigureCanvasTkAgg(self.fig, master=self)
         self.canvas.get_tk_widget().pack(fill="both", expand=True)
 
     @property
     def temps(self):
-        return self.simulateur.temps()
+        return self.master.temps
 
     def redessiner(self) -> None:
         """
@@ -30,7 +31,7 @@ class GraphiqueFrame(ctk.CTkFrame):
         self.ax.clear()
         self.ax.set_aspect("equal")
 
-        # Repeupler le graphique
+        # --- Repeupler le graphique ---
         # Affichage des astres
         for astre in self.simulateur.astres:
             if astre.actif:
@@ -39,21 +40,13 @@ class GraphiqueFrame(ctk.CTkFrame):
                 self.ax.scatter(x, y, astre.taille, astre.couleur)
 
         # Affichage des Projectiles
-        for projectile in self.simulateur.projectiles:
-            if projectile.etat == "actif":
-                # Marqueur de position actuelle
-                x, y = projectile.position(self.temps)
-                self.ax.scatter(x, y, projectile.taille, projectile.couleur)
+        # for projectile in self.simulateur.projectiles:
+        #     if projectile.etat == "actif":
+        #         # Marqueur de position actuelle
+        #         x, y = projectile.position(self.temps)
+        #         self.ax.scatter(x, y, projectile.taille, projectile.couleur)
 
         self.canvas.draw_idle()
-
-    def afficher_libre(self):
-        """
-        Affiche le graphique directement via MatPlotLib. À utiliser seulement dans le bus de déboguer.
-        """
-
-        self.redessiner()
-        self.fig.show()
 
 
 class LigneDuTemps(ctk.CTkFrame):
@@ -62,12 +55,13 @@ class LigneDuTemps(ctk.CTkFrame):
     moment-clé précédent.
     """
 
-    def __init__(self, master: ctk.CTk, simulateur):
+    def __init__(self, master: App, simulateur):
         super().__init__(master=master)
         self.simulateur = simulateur
         self.__taille_boutons = 10  # taille des boutons carrés
+        self.__temps = 0
 
-        # Création des widgets
+        # Création des boutons et de la ligne
         self.stop = ctk.CTkButton(
             master=self,
             text="\u23f9",
@@ -95,14 +89,26 @@ class LigneDuTemps(ctk.CTkFrame):
         self.slider = ctk.CTkSlider(
             master=self,
             height=self.__taille_boutons,
-            from_=0,
-            to=simulateur.temps_max(),
+            from_=0, to=simulateur.temps_max(),
             command=self.__cmd_slider
         )
+
+        # Arranger les widgets
         self.stop.grid(row=0, column=0)
-        self.play_pause.grid(row=0, column=1)
-        self.fforward.grid(row=0, column=2)
-        self.back.grid(row=0, column=3)
+        self.back.grid(row=0, column=1)
+        self.play_pause.grid(row=0, column=2)
+        self.fforward.grid(row=0, column=3)
+        self.slider.grid(row=0, column=4)
+
+    @property
+    def temps(self):
+        return self.__temps
+
+    @temps.setter
+    def temps(self, value):
+        self.__temps = value
+        self.master.graphique.redessiner()
+        self.slider.set(value)
 
     def __cmd_stop(self):
         """Arrête le défilement du temps et revient à t=0."""
@@ -110,11 +116,11 @@ class LigneDuTemps(ctk.CTkFrame):
 
     def __cmd_play(self):
         """Fait défiler le temps."""
-        self.play_pause.config(text="\u23f8", command=self.__cmd_pause)
+        self.play_pause.configure(text="\u23f8", command=self.__cmd_pause)
 
     def __cmd_pause(self):
         """Met sur pause le défilement du temps."""
-        self.play_pause.config(text="\u23f5", command=self.__cmd_play)
+        self.play_pause.configure(text="\u23f5", command=self.__cmd_play)
 
     def __cmd_fforward(self):
         """Avance jusqu'au prochain moment-clé."""
@@ -126,7 +132,7 @@ class LigneDuTemps(ctk.CTkFrame):
 
     def __cmd_slider(self, value):
         """Met à jour le temps lorsque le slider est utilisé"""
-        pass
+        self.temps = value
 
 
 class App(ctk.CTk):
@@ -141,10 +147,25 @@ class App(ctk.CTk):
         self.minsize(400, 300)
         self.resizable(True, True)
 
-        self.graphique = GraphiqueFrame(master=self, simulateur=None)  # J'ai besoin de la classe de simu pour cet appel
+        # NE PAS ENLEVER : Nécéssaire pour assurer que la fermeture de la fenêtre se fait sécuritairement.
+        self.protocol("WM_DELETE_WINDOW", self.quit)
+
+        # Initialise la simulation
+        self.simulateur = Simulation()
+
+        # Initialise le graphique et la ligne du temps
+        self.graphique = GraphiqueFrame(master=self, simulateur=self.simulateur)  # Besoin de la classe de simu pr ça
         self.graphique.grid(row=0, column=0)
-        self.ligne_du_temps = LigneDuTemps(master=self, simulateur=None)  # Idem
+        self.ligne_du_temps = LigneDuTemps(master=self, simulateur=self.simulateur)  # Idem
+        self.ligne_du_temps.grid(row=1, column=0, padx=10)
+
+        self.graphique.redessiner()
+
+    @property
+    def temps(self):
+        return self.ligne_du_temps.temps
 
 
 if __name__ == "__main__":
-    pass  # code d'éxec
+    app = App()
+    app.mainloop()
