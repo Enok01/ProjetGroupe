@@ -78,14 +78,7 @@ class Projectile(Astre):
                     np.array: Position du projectile à l'instant t.
                 """
 
-                if t < self.temps_apparition:
-                    return self.pos0  # Le projectile n'est pas encore apparu, retourne la position initiale
-                ligne = int(t - self.temps_apparition)  # Calculer l'indice de la ligne dans l'historique
-                
-                if ligne < len(self.historique): 
-                    return self.historique[ligne, :2]  # Retourner la position à l'instant t
-                
-                return self.historique[-1, :2]  # Retourner la dernière position connue pour eviter une erreur out of range 
+                return self.etat_a(t)[:2]  # Retourne seulement les coordonnées x et y de l'état complet à l'instant t
 
 
     def etat_a(self, pas):
