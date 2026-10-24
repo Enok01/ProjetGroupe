@@ -3,14 +3,27 @@ from abc import ABC, abstractmethod
 import numpy as np
 
 
+def en_booleen(valeur) -> bool:
+    #Convertit la valeur « actif » du CSV ou d'un formulaire en booléen.
+    #Attention : bool("false") vaut True en Python, d'où cette fonction.
+    if isinstance(valeur, (bool, np.bool_)):
+        return bool(valeur)
+    texte = str(valeur).strip().lower()
+    if texte in ("true", "vrai", "oui", "1", "1.0"):
+        return True
+    if texte in ("false", "faux", "non", "0", "0.0"):
+        return False
+    raise ValueError(f"« {valeur} » n'est pas une valeur valide pour actif (attendu true ou false)")
+
+
 class Astre(ABC):
     #Classe abstraite commune aux astres fixes et aux projectiles.
     """
     Attributs :
         nom : nom unique de l'objet.
-        masse : masse en masses solaires .
-        couleur : couleur d'affichage dans le graphique matplotlib (ex. "#FDB813").
-        taille : taille d'affichage en points.
+        masse : masse en masses terrestres (Terre = 1), comme dans systeme_solaire.csv.
+        couleur : couleur d'affichage dans le graphique matplotlib (ex. "orange" ou "#FDB813").
+        taille : taille d'affichage (rayon relatif à celui de la Terre dans le CSV).
         rayon : rayon de collision en UA.
         actif : un objet inactif n'attire pas et n'est pas simulé.
     """
@@ -19,7 +32,7 @@ class Astre(ABC):
     def __init__(self, nom: str, masse: float, couleur: str, taille: float, rayon: float, actif: bool = True):
         self.nom = nom
         self.couleur = couleur
-        self.actif = bool(actif)
+        self.actif = en_booleen(actif)
         #Les valeurs numériques peuvent venir du CSV ou d'un formulaire : on vérifie leur conversion
         try:
             self.masse = float(masse)
@@ -45,7 +58,7 @@ class AstreFixe(Astre):
     Attributs :
         distance : rayon de l'orbite en UA (0 = immobile au centre, comme le Soleil).
         periode : période de révolution en jours (0 = immobile).
-        phase : angle de l'astre à t = 0, en radians.
+        phase : angle de l'astre à t = 0, en degrés (comme dans systeme_solaire.csv).
         parent : astre autour duquel il tourne, ou None pour le centre.
     """
 
@@ -73,11 +86,13 @@ class AstreFixe(Astre):
             raise ValueError(f"AstreFixe « {self.nom} » : le temps doit être un nombre de jours, reçu {t!r}") from None
 
     def _angle(self, t: float) -> float:
-        #Angle au temps t : theta = 2*pi*t/T + phase (l'angle reste égal à la phase si T = 0).
+        #Angle en radians au temps t : theta = 2*pi*t/T + phase (l'angle reste égal à la phase si T = 0).
+        #La phase est donnée en degrés, on la convertit en radians pour cos et sin.
         t = self._temps(t)
+        phase = np.radians(self.phase)
         if self.periode > 0:
-            return 2 * np.pi * t / self.periode + self.phase
-        return self.phase
+            return 2 * np.pi * t / self.periode + phase
+        return phase
 
     def position(self, t: float) -> np.ndarray:
         #Position r(t) = centre + d * (cos(theta), sin(theta)), le centre étant (0, 0) ou le parent.
@@ -118,7 +133,7 @@ class AstreFixe(Astre):
             couleur=str(ligne.get("couleur") or "#FFFFFF").strip(),
             taille=nombre("taille", 5.0),
             rayon=nombre("rayon"),
-            actif=bool(int(nombre("actif", 1.0))),
+            actif=en_booleen(ligne.get("actif", True)),
             distance=nombre("distance"),
             periode=nombre("periode"),
             phase=nombre("phase"),

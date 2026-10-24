@@ -1,5 +1,6 @@
-from Projectile import Projectile 
-from Astre_Fixe import Astre_Fixe
+# Correction Levy : les modules s'appellent projectile.py et astre.py, et la classe AstreFixe
+from projectile import Projectile
+from astre import AstreFixe as Astre_Fixe
 
 G = 6.67430e-11
 MT_EN_KG = 5.9722e24
@@ -8,7 +9,7 @@ UA_EN_KM = 149507870700
 
 from math import sin, cos, tanh, radians 
 
-def prochaine_pos_vit_du_projectile(pos_projectile: list[float], dt: float, vitesse_proj: list[float], liste_astre: list[Astre_Fixe]): 
+def prochaine_pos_vit_du_projectile(pos_projectile: list[float], dt: float, vitesse_proj: list[float], liste_astre: list[Astre_Fixe], t: float = 0.0):
     """_Calcule la prochaine vitesse que aura le projectile ainsi que sa prochaine position_
     
     Args:
@@ -27,8 +28,10 @@ def prochaine_pos_vit_du_projectile(pos_projectile: list[float], dt: float, vite
     ax, ay = 0,0
 
     for astre in liste_astre:
-        distance_entre_eux = (pos_projectile[0] - astre.position[0], pos_projectile[1] - astre.position[1])
-        
+        # Correction Levy : position est une méthode qui dépend du temps t (jours) : astre.position(t)
+        pos_astre = astre.position(t)
+        distance_entre_eux = (pos_projectile[0] - pos_astre[0], pos_projectile[1] - pos_astre[1])
+
         # Trouve l'angle entre l'astre et le projectille
         angle_rad = 0 if distance_entre_eux[1] < 0 else radians(180)
         if not distance_entre_eux[0] == 0:
@@ -36,7 +39,8 @@ def prochaine_pos_vit_du_projectile(pos_projectile: list[float], dt: float, vite
 
         # Calcule la acceleration avec l'equation Fg = Gm1m2/d**2 et a = F/m2
         a = -(G * JOUR_EN_S * MT_EN_KG / UA_EN_KM) * astre.masse / ((distance_entre_eux[0])**2 + (distance_entre_eux[1])**2)
-        ax, ay += a*cos(angle_rad), a*sin(angle_rad) 
+        # Correction Levy : « ax, ay += ... » est une erreur de syntaxe en Python
+        ax, ay = ax + a*cos(angle_rad), ay + a*sin(angle_rad)
     
     # Calcule nouvelle vitesse et la nouvelle position 
     new_vx, new_vy = vitesse_proj[0] + dt * ax, vitesse_proj[1] + dt * ay
