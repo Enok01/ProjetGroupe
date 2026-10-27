@@ -45,21 +45,11 @@ def prochaine_pos_vit(pos: list[float], liste_astre: list[AstreFixe], dt: float,
         ux = dx / distance 
         uy = dy / distance
         
-        
-
         # Calcule la acceleration avec l'equation Fg = Gm1m2/d**2 et a = F/m2
         a = (G * JOUR_EN_S**2 * MT_EN_KG / UA_EN_M ** 3) * astre.masse / distance**2
-        
-        if astre.nom == "Soleil" and (distance - 1) < 0.001:
-            print("acceleration solaire =", a)
-        
+    
         ax += a * ux
         ay += a * uy
-        #print(
-        #            "t=", t,
-        #            "r=", distance,
-        #            "a=", a
-        #)
         
     # Calcule nouvelle vitesse et la nouvelle position 
     new_vx, new_vy = v[0] + dt * ax, v[1] + dt * ay
@@ -111,44 +101,43 @@ def creer_liste_pos_vit_du_projectile(p: Projectile, liste_astre: list[AstreFixe
 
     for _ in range(int(t_final//dt) + (0 if t_final%dt != 0 else + 1)):
         
-        
-
         new_pos, new_vit = prochaine_pos_vit(pos, liste_astre, dt, t, vit)
-        #print("distance terre =",
-        #    np.sqrt(
-        #     (pos[0]-terre.position(t)[0])**2 +
-        #     (pos[1]-terre.position(t)[1])**2
-        # ), ", position -> ", pos)
-        
-        contacte = est_en_contacte(pos, new_pos, liste_astre, t)
+         
+        t += dt
+        contacte, new_pos = est_en_contacte(pos, new_pos, p, liste_astre, t)
         
         if contacte != None:
+            p.ajouter_etat(new_pos, new_vit) # temportijjfdkdsjfgkajdsjhglsjdbfga lvuekrjfvhwclekfjh vxjkf
             return contacte
         # ajoute la position a la liste
         p.ajouter_etat(new_pos, new_vit)
         
         pos, vit = new_pos, new_vit
-        t += dt
+        
     return None
         
 
-def est_en_contacte(pos: list[float],new_pos: list[float], liste_astre: list[AstreFixe], t: float) -> AstreFixe:
+def est_en_contacte(pos: list[float], new_pos: list[float],p: Projectile,  liste_astre: list[AstreFixe], t: float) -> AstreFixe:
     """_verifi s'il est en contact ou non_
 
     Args:
         pos (list[float]): _la position x et y du projectille au moment presedant (en UA)_
         new_pos (list[float]): _la nouvelle position x et y du projectille maintenent (en UA)_
+        p (Prokectile): _projectile utiliser_
         liste_astre (list[AstreFixe]): _tout les astres fixes_
         t (float): _temps rendu (en jour)_
 
     Returns:
-        AstreFixe: _L'astre toucher ou None s'il ne touche rien_
+        AstreFixe, (x, y): _L'astre toucher et la position ou elle a toucher ou None s'il ne touche rien_
     """         
     
-    # trouvons la fonction y = ax + b qui relis _pos_ et _new_pos_
+    ## sdkufaokjdygfakdygal    IL FAUT CONSIDERER LE RAYON DU PROJECTILE   
     
+    #print('\n\n t = ', t, '\n')
+    
+    # trouvons la fonction f(x) = ax + b qui relis _pos_ et _new_pos_
     a = (new_pos[1] - pos[1]) / (new_pos[0] - pos[0])
-    b = new_pos[1] - a * new_pos[0]
+    b = pos[1] - a * pos[0]
     
     
     for astre in liste_astre:
@@ -156,46 +145,49 @@ def est_en_contacte(pos: list[float],new_pos: list[float], liste_astre: list[Ast
         
         astre_position = astre.position(t)
         
-        # 1- trouvons l'equation du cercle pour lastre                   -> (x - astre.position(t)[0])**2 + (y - astre.position(t)[1] )**2 = r**2
+        rayon_contacte = astre.rayon + p.rayon
+        
+        
+        # 1- trouvons l'equation du cercle pour lastre                   -> (x - astre_position[0])**2 + (y - astre_position[1] )**2 = r**2
         # 2- ensuite nous allons remplacer le y dans lequation
-        # du cercle pour la fonction du des deux point                -> (x - astre.position(t)[0])**2 + (ax + b - astre.position(t)[1] )**2 = r**2
-        # 3- avec des simplifications, nous avons                   -> (a**2 + 1)*x**2 + (2*a*b)*x + b**2 - r**2 = 0 
-        # 4- Par la formule quadratique (b**2 -4*a*c)                             ->''';';'lk'kzsjdf;zlk ERROR !!!!!!!!! delta = (2*a*b)**2 - 4 * (a**2 + 1) * (b**2 - r**2)
-        
-        A = #a faire sur tablette!!
-        
-        B = 
-        
-        C = 
-        
-        
-        delta = (2*a*b) **2 - 4*(a**2 +1)*(b**2-astre.rayon**2)!!!!!!
-        
-        
-        if delta < 0:
+        # du cercle pour la fct f(x)                                -> (x - astre_position[0])**2 + (ax + b - astre_position[1] )**2 = r**2
+        # 3- avec des simplifications, nous avons                   -> (1+a**2)*x**2 + (2*a*b - 2*astre_position[0] - 2*a*astre_position[1])*x + (astre_position[0]**2 + astre_position[1]**2 + b**2 - 2*b*astre_position[1] - r**2) = 0
+
+        A = 1 + a**2        
+        B = 2*a*b - 2*astre_position[0] - 2*a*astre_position[1]
+        C = astre_position[0]**2 + astre_position[1]**2 + b**2 - 2*b*astre_position[1] - rayon_contacte**2
+            
+        # 4- Par la formule quadratique                             -> discriminant = B**2 - 4AC
+        discriminant = (B)**2 - 4*(A)*(C)
+            
+        # Les tangences produisent parfois des faux positifs
+        # à cause des trajectoires quasi verticales.
+        if discriminant <= 0:
             continue
-        
-        # 5- par la formule quadratique                             ->  (x = (-b +_ sqrt(delta)) / (2*a))
-        x1, x2 = float((-b + np.sqrt(delta)) / (2*a)), float((-b - np.sqrt(delta)) / (2*a))
-        
-        # 6- par lequation des deux point                            -> (y = ax + b)
+    
+        # 5- par la formule quadratique                             ->  (x = (-B +_ sqrt(discriminant)) / (2*A))
+        x1, x2 = float((-B + np.sqrt(discriminant)) / (2*A)), float((-B - np.sqrt(discriminant)) / (2*A))
+            
+        # 6- par lequation f(x)                                      -> (f(x) = ax + b)
         y1, y2 = float(a*x1 + b), float(a*x2 + b)
         
-        xmax = pos[0] if pos[0] >= new_pos[0] else new_pos[0]
-        xmin = pos[0] if pos[0] < new_pos[0] else new_pos[0]
-        ymax = pos[1] if pos[1] >= new_pos[1] else new_pos[1]
-        ymin = pos[1] if pos[1] < new_pos[1] else new_pos[1]
-    
+                
+        # 7- Calcule le rectangle englobant du segment [pos, new_pos].
+        # Une intersection avec le cercle n'est valide que si elle
+        # se trouve à l'intérieur de ces bornes.
+        xmax, xmin = (pos[0], new_pos[0]) if pos[0] >= new_pos[0] else (new_pos[0], pos[0])
+        ymax, ymin = (pos[1], new_pos[1]) if pos[1] >= new_pos[1] else (new_pos[1], pos[1])
+            
+        # 8- regarde si le point passant a f(x) et lequation du cercle est entre les deux positions _pos_ et _new_pos_
         condition1 = ( xmin < x1 and x1 <= xmax) and (ymin < y1 and y1 <= ymax)
         condition2 = ( xmin < x2 and x2 <= xmax) and (ymin < y2 and y2 <= ymax)
         
-        print(condition1, ' et ' , condition2)
-    
-        if condition1 or condition2:
-            return astre
         
-        
-        
+        if condition1:
+            return astre, (x1, y1)
+                    
+        elif condition2:
+            return astre, (x2, y2) # pourrais update la derniere position 
         
         
         
@@ -204,20 +196,13 @@ def est_en_contacte(pos: list[float],new_pos: list[float], liste_astre: list[Ast
         
         
         
-        
-        
-        
-        
-        
-        
-        
         # determine le rayon a la deux de la distance entre lastre et le projectile avec pytagore
         #distance_entre_eux2 = (pos[0] - astre_position[0]) ** 2 + (pos[1] - astre_position[1]) ** 2
-        #rayon_astre2 = astre.rayon ** 2     
+        #rayon_astre2 = rayon_contacte ** 2     
         
         #if distance_entre_eux2 < rayon_astre2:
         #    return astre 
-    return None
+    return None, new_pos
 
 
 
@@ -228,9 +213,6 @@ def est_en_contacte(pos: list[float],new_pos: list[float], liste_astre: list[Ast
 
 
 
-
-
-import numpy as np
 
 
 # Creation des astres
@@ -274,21 +256,20 @@ projectile = Projectile(
     taille=3,
     rayon=0.00001,
     pos0=pos_depart,
-    vit0=[-1,0],
+    vit0=[0,0],
     temps_apparition=0,
     duree_vie=1000
 )
 
+dt = 0.1
 
 ## cree les listes
 impact = creer_liste_pos_vit_du_projectile(
     projectile,
     [soleil, terre],
-    dt=0.05,
+    dt=dt,
     t_final=400
 )
-
-print("\n------- RESULTAT --------")
 
 if impact is None:
     print("aucun impact")
@@ -309,7 +290,15 @@ y = [position[1] for position in projectile.historique]
 
 x_terre = [terre.position(i)[0] for i in range(int(366))] 
 
+x_rond = []
+for pos in x_terre:
+    x_rond.extend([pos, pos + terre.rayon, pos, pos - terre.rayon])
 y_terre = [terre.position(i)[1] for i in range(int(366))] 
+
+y_rond = []
+for pos in y_terre:
+    y_rond.extend([pos + terre.rayon, pos, pos - terre.rayon, pos])
+
 
 x_soleil = [soleil.position(i)[0] for i in range(int(366))] 
 
@@ -317,8 +306,11 @@ y_soleil = [soleil.position(i)[1] for i in range(int(366))]
 
 plt.plot(x,y, 'o--', color = 'm', label= projectile.nom)
 
+plt.plot(x_rond, y_rond, 'o')
+
 plt.plot(x_terre, y_terre, "o-.", color = 'g', label= terre.nom)
 plt.plot(x_soleil, y_soleil, "o-.", color ='y', label= soleil.nom)
 plt.legend()
 
 plt.show()
+
