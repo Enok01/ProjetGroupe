@@ -1,7 +1,7 @@
 import customtkinter as ctk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
-from lib import Simulation  # placeholder
+from src.sim import Simulation  # placeholder
 
 
 class GraphiqueFrame(ctk.CTkFrame):
@@ -9,9 +9,9 @@ class GraphiqueFrame(ctk.CTkFrame):
     Le graphique.
     """
 
-    def __init__(self, master: App, simulateur):
+    def __init__(self, master: App, simulateur: Simulation):
         super().__init__(master=master)
-        self.simulateur = simulateur
+        self.simulateur: Simulation = simulateur
 
         # Création des composantes MatPlotLib
         self.fig = plt.figure()
@@ -55,9 +55,9 @@ class LigneDuTemps(ctk.CTkFrame):
     moment-clé précédent.
     """
 
-    def __init__(self, master: App, simulateur):
+    def __init__(self, master: App, simulateur: Simulation):
         super().__init__(master=master)
-        self.simulateur = simulateur
+        self.simulateur: Simulation = simulateur
         self.__taille_boutons = 10  # taille des boutons carrés
         self.__temps = 0
 
