@@ -62,7 +62,13 @@ class LigneDuTemps(ctk.CTkFrame):
         self.simulateur: Simulation = simulateur
         self.__taille_boutons = 10  # taille des boutons carrés
         self.__temps = 0
-
+        
+        # parametre pour le defilement du temps
+        self.__running = False
+        self.__timer_id = None              # TODO Mettre ca priver 
+        self.__seconde_ecouler = 0 # sa se peux que jaye pas bessoin
+        
+        
         # Création des boutons et de la ligne
         self.stop = ctk.CTkButton(
             master=self,
@@ -105,37 +111,64 @@ class LigneDuTemps(ctk.CTkFrame):
     @property
     def temps(self):
         return self.__temps
+    
+    @property
+    def running(self):
+        return self.__running
 
     @temps.setter
     def temps(self, valeur):
         self.__temps = valeur
+    def temps(self, value):
+        print('\nt =',value) #######TODO enlever
+        self.__temps = value
         self.master.graphique.redessiner()
         self.slider.set(valeur)
+        self.slider.set(value)
+        
+    @running.setter
+    def running(self, value):
+        self.__running = value
+    
 
     def __commande_arret(self):
         """Arrête le défilement du temps et revient à t=0."""
-        pass
+        self.temps = 0
+        self.__cmd_pause()
 
     def __commande_lecture(self):
         """Fait défiler le temps."""
-        self.play_pause.configure(text="\u23f8", command=self.__commande_pause)
+        
+        if not self.running:# TODO
+            self.running = True
+            self.update_time()
+        
+        self.play_pause.configure(text="\u23f8", command=self.__cmd_pause)
 
     def __commande_pause(self):
         """Met sur pause le défilement du temps."""
-        self.play_pause.configure(text="\u23f5", command=self.__commande_lecture)
+        self.running = False
+        self.play_pause.configure(text="\u23f5", command=self.__cmd_play)
 
     def __commande_suivant(self):
         """Avance jusqu'au prochain moment-clé."""
-        pass
+        self.temps = self.simulateur.moment_cle_prochain(self.__temps)
 
     def __commande_precedent(self):
         """Retourne au moment-clé précédent."""
-        pass
+        self.__temps = self.simulateur.moment_cle_prochain(self.__temps, direction = "recule")
 
-    def __commande_curseur(self, valeur):
+    def __cmd_slider(self, value): # TODO mettre des temps pile que le slider ne met pas des temps a virgule
         """Met à jour le temps lorsque le slider est utilisé"""
-        self.temps = valeur
-
+        print(self.temps)
+        self.temps = value
+        
+    def update_time(self):
+        if self.running and self.temps != self.simulateur.temps_max():
+            self.temps += 1
+            self.after(100,self.update_time)# 1000 ms = 1 seconde
+        else:
+            self.__cmd_pause
 
 class App(ctk.CTk):
     """
