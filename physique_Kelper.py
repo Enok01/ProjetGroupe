@@ -3,77 +3,54 @@ from astre import AstreFixe
 from exceptions import (HorsSystemeError, TempsMaximumAtteinte)
 
 import numpy as np
-
 import matplotlib.pyplot as plt
 
-G = 6.67430e-11
+'''
+        J'ai fait un test en bas pour visualiser un projectile, par exemple, dans un matplotlib
+        il faudrait le delete a la fin !!
+'''
+''' ========================================================== DEBUG ==========================================================  '''
+test = True # pour faire le test des avec les donnees suivant: 
+pos_depart = None # si None -> met la position du projectile a droite de la terre dune distance de 2* le rayon de la terre
+vit_depart = [0,0.01] # [0.01, 0] == contact avec soleil, [0.01,0.01] == touche jamais rien, [0.00012,-0.017] == a peu pres le rond de la terre, [0,0] touche la terre
+''' ===========================================================================================================================  '''
+
+G_m_kg_s = 6.67430e-11
 MT_EN_KG = 5.9722e24
 JOUR_EN_S = 86400
 UA_EN_M = 149507870700
 
-def prochaine_pos_vit(pos: list[float], liste_astre: list[AstreFixe], dt: float, t:float, v: list[float]) -> tuple[tuple]: 
-    """_Calcule la prochaine vitesse que aura le projectile ainsi que sa prochaine position_
-    
-    Args:
-        pos (list[float]): _la position x et y du projectille à ce moment (en UA)_
-        liste_astre (list[AstreFixe]): _liste qui contien tout les astres fixes du systeme_
-        dt (float): _pas de temps (en j)_
-        t (float): _temps rendu (en j)_
-        v (list[float]): _vitesse x et y du projectille (en UA/j)_
-    
-    Returns:
-        _tuple_ (new_pos, new_vit, dt_moment) : 
-            _new_pos_ -> _nouvelle position x et y du projectille (en UA)_
-            
-            _new_vit_ -> _nouvelle vitesse x et y du projectille (en UA/j)_
-            
-            
-    """ 
-    #_dt_moment_ -> _le pas selon la distance de lastre la plus proche et le projectile et lacceleration (en j)_
-    
-    
-    a = np.array([0.0, 0.0])
-    
-    astres_position_masse = [[astre.position(t), astre.masse] for astre in liste_astre]
+DISTANCE_MAX_AJOUTER = 2 # distance en UA ajouter pour les bornes maximals du projectile pour le considere comme 'hors du systeme'
 
-    for astre_position_masse in astres_position_masse:
-        
-        astre_position = astre_position_masse[0]
-        astre_masse = astre_position_masse[1]
-        
-        vecteur_astre_projectile = astre_position - pos  
-        
-        distance = np.linalg.norm(vecteur_astre_projectile) 
-        if distance < 1e-12: # Pour eviter les divisions par 0
-            continue
-        
-        # cree des vecteurs unitaire
-        vect_unitaire = vecteur_astre_projectile / distance
-        
-        # Calcule la acceleration avec l'equation Fg = Gm1m2/d**2 et a = F/m1, qui combiner ensemble : G * m2/d**2 
-        a_astre = (G * JOUR_EN_S**2 * MT_EN_KG / UA_EN_M ** 3) *  astre_masse/ distance**2
-        a += vect_unitaire * a_astre
-        
-    # Calcule nouvelle vitesse et la nouvelle position 
-    new_v = v + dt * a 
-    new_pos = pos + v*dt + 0.5*a*dt**2 
-    
-    return new_pos, new_v 
-
-
-def creer_liste_pos_vit_du_projectile(p: Projectile, liste_astre: list[AstreFixe], dt: float = 0.01, temps_maximum: int = 3650 ) -> AstreFixe:
+def calculer_trajectoire(projectile: Projectile, liste_astre: list[AstreFixe], dt: float = 0.1, temps_maximum: int = 3653 ) -> AstreFixe:    
     """_Cree la trajectoire du projectile en calculant sa position et sa vitesse sous les graviter des astre du systeme.
         Les etats calculer sont enregistrer dans l'historique du projectile._
 
     Args:
-        p (Projectile): _Projectille utiliser_
-        liste_astre (list[AstreFixe]): _Toutes les astres fixes_
-        dt (float, optional): _pas de temps entre les positions (en jour)_. Defaults to 0.01 (recomander pour la presision).
-        nombre_diteration_max (int, optional): _nombre de position calculer maximum_. Defaults est de 3650 jour (10 ans).
+        projectile (Projectile): _Projectille utiliser pour la trajectoire_
+        liste_astre (list[AstreFixe]): _Systeme des astres fixes dans une liste_
+        dt (float, optional): _pas de temps entre les positions (en jour)_. Inisialiser a 0.1 (recomander pour la rapidite) si plus presi et un peux moins rapide -> 0.01.
+        temps_maximum (int, optional): _nombre de position calculer maximum_. Inisialiser a 3653 jour (10 ans).
+
+    Raises:
+        HorsSystemeError: _Si le projectile est hors du systeme._
+        TempsMaximumAtteinte: _Si le nombre de temps maximum a ete atteinte._
 
     Returns:
-        AstreFixe: _l'astre fixe toucher ou, sil na rien toucher, None_
-    """ 
+        AstreFixe: _Retourne l'astre fixe toucher selement s'il a eu contacte avec un astre fixe_
+    """    
+    
+    # Verifi si tout les valeurs donners sont correct
+    if not isinstance(projectile, Projectile):
+        raise ValueError("Pysique_Kelper : p doit etre un Projectile.")
+    if not all(isinstance(astre, AstreFixe) for astre in liste_astre):
+        raise ValueError("Pysique_Kelper : Il faut que toutes les astres dans liste_astre soit des AstreFixe.")
+    if not (isinstance(dt, (int,float)) or isinstance(temps_maximum,(int, float))):
+        raise ValueError("Pysique_Kelper : dt et temps_maximum doivent être des nombres.")
+    if dt < 0 or temps_maximum < 0:
+        raise ValueError("Pysique_Kelper : dt et temps_maximum doivent être positives.")
+    
+    Nb_iterations_enregistrement = int(1/dt)
     
     # determine la longueur maximal pour arreter la creation de la liste
     DISTANCE_MAX_AJOUTER = 2
@@ -81,87 +58,143 @@ def creer_liste_pos_vit_du_projectile(p: Projectile, liste_astre: list[AstreFixe
     distance_max = astre_loin.distance + DISTANCE_MAX_AJOUTER
     
     # creer une liste de position uqe le projectile a fait
-    pos = p.pos0
-    vit = p.vit0
+    pos = projectile.pos0
+    vit = projectile.vit0
     t = 0 # en jour
-    nombre_diteration_max = int(temps_maximum * 1/dt)
+    nombre_diteration_max = int(temps_maximum / dt)
     
     for i in range(nombre_diteration_max):
-        
-        new_pos, new_vit = prochaine_pos_vit(pos, liste_astre, dt, t, vit)  # , dt_moment
-        
-        t += dt
-        contacte, new_pos = est_en_contacte(pos, new_pos, p, liste_astre, t)
+        # Enregistre les positions des astres ici comme sela on a pas besoin de trouver tout le temps la position
+        astres_positions = [(astre, astre.position(t)) for astre in liste_astre]
+               
+        new_pos, new_vit = prochaine_pos_vit(pos, astres_positions, dt, t, vit)
+        contacte, new_pos = est_en_contacte(pos, new_pos, projectile, astres_positions, t)
         
         if contacte != None:
-            p.ajouter_etat(new_pos, new_vit) # TODO #temporaire 
+            projectile.ajouter_etat(new_pos, new_vit) # ajoute la derniere position du projectile (sur lastre)
             return contacte
-        
-        if np.linalg.norm(new_pos) > distance_max:    
+                
+        if new_pos[0]**2 + new_pos[1]**2 > distance_max**2:    
             raise HorsSystemeError('Le projectile est hors du systeme.')
         
-        NB_ITERATIONS_ENREGISTREMENT = int(1/dt)
-        
-        if i%NB_ITERATIONS_ENREGISTREMENT == 0:
-            p.ajouter_etat(new_pos, new_vit)
-        
-        
+        # enregistre les positions seulement quand sa fait un jour
+        if i%Nb_iterations_enregistrement == 0 and i != 0:
+            projectile.ajouter_etat(new_pos, new_vit)
+            
         pos, vit = new_pos, new_vit
+        t += dt
         
-    raise TempsMaximumAtteinte('Le nombre')
-        
+    raise TempsMaximumAtteinte('Le nombre de temps maximum a ete atteinte.')
+      
+      
+def prochaine_pos_vit(pos: list[float], astres_positions: list[tuple[AstreFixe, tuple[float,float]]], dt: float, t:float, v: list[float]) -> tuple[tuple]: 
+    """_Calcule la prochaine vitesse que aura le projectile ainsi que sa prochaine position en utilisant 
+    velocity verlet algorithm pour sa conservation denergie a long terme (pour plus dinformation -> https://www.youtube.com/watch?v=ii-N61PeeQU&t=747s)_
 
-def est_en_contacte(pos: list[float], new_pos: list[float], p: Projectile,  liste_astre: list[AstreFixe], t: float) -> AstreFixe:
+    Args:
+        pos (list[float]): _la position x et y du projectille à ce moment (en UA)_
+        astres_positions (list[tuple[AstreFixe, tuple[float,float]]]): _liste qui contient toutes les positions des astres et les astres fixes du systeme_
+        dt (float): _pas de temps (en j)_
+        t (float): _temps rendu (en j)_
+        v (list[float]): _vitesse x et y du projectille (en UA/j)_
+
+    Returns:
+        _tuple_ (new_pos, new_vit) : 
+            _new_pos_ -> _nouvelle position x et y du projectille (en UA)_
+                    
+            _new_vit_ -> _nouvelle vitesse x et y du projectille (en UA/j)_
+    """    
+    G = (G_m_kg_s * JOUR_EN_S**2 * MT_EN_KG / UA_EN_M ** 3)
+    
+    # 1- Trouvons a(t) -> a
+    a = np.array([0.0, 0.0])
+    for astre_position in astres_positions:
+        
+        # Trouve la distance entre le projectile et l'astre fixe
+        vecteur_astre_projectile = astre_position[1] - pos  
+        distance2 = vecteur_astre_projectile[0]**2 + vecteur_astre_projectile[1]**2
+        if distance2 < 1e-12: # Pour eviter les divisions par 0
+            continue
+        
+        # Trouve les vecteurs unitaire du vecteur entre le projectile et l'astre fixe
+        vect_unitaire = vecteur_astre_projectile / np.sqrt(distance2)
+        
+        # Calcule la acceleration avec l'equation Fg = Gm1m2/d**2 et a = F/m1, qui combiner ensemble : G * m2/d**2 
+        a_astre = G * astre_position[0].masse / distance2
+        a += vect_unitaire * a_astre
+    
+    # 2- Trouvons la position au temps t + dt -> new pos 
+    new_pos = pos + v*dt + 0.5*a*dt**2
+    
+    # 3- Trouvons a(t + dt) -> new_a
+    new_a = np.array([0.0, 0.0])
+    for astre_position in astres_positions:
+        
+        # Trouve la distance entre le projectile et l'astre fixe
+        vecteur_astre_projectile = astre_position[1] - new_pos  
+        distance2 = vecteur_astre_projectile[0]**2 + vecteur_astre_projectile[1]**2
+        if distance2 < 1e-12: # Pour eviter les divisions par 0
+            continue
+        
+        # Trouve les vecteurs unitaire du vecteur entre le projectile et l'astre fixe
+        vect_unitaire = vecteur_astre_projectile / np.sqrt(distance2)
+        
+        # Calcule la acceleration avec l'equation Fg = Gm1m2/d**2 et a = F/m1, qui combiner ensemble : G * m2/d**2 
+        a_astre = G * astre_position[0].masse / distance2
+        new_a += vect_unitaire * a_astre
+    
+    # 4- Trouvons v(t+dt) -> new_v
+    new_v = v + 1/2 * (new_a + a) * dt
+    
+    return new_pos, new_v 
+
+
+def est_en_contacte(pos: list[float], new_pos: list[float], p: Projectile,  astres_positions: list[tuple[AstreFixe, tuple[float,float]]], t: float) -> AstreFixe:
     """_Verifi s'il est en contact ou non en calculant si la trajectoire des deux points ont des points avec lastre le plus proche_
 
     Args:
         pos (list[float]): _la position x et y du projectille au moment presedant (en UA)_
         new_pos (list[float]): _la nouvelle position x et y du projectille maintenent (en UA)_
-        p (Prokectile): _projectile utiliser_
-        liste_astre (list[AstreFixe]): _tout les astres fixes_
+        p (Projectile): _projectile utiliser_
+        astres_positions (list[tuple[AstreFixe, tuple[float,float]]]): _liste qui contient toutes les positions des astres et les astres fixes du systeme_
         t (float): _temps rendu (en jour)_
 
     Returns:
-        AstreFixe, (x, y): _L'astre toucher et la position ou elle a toucher ou None s'il ne touche rien_
+        AstreFixe: _L'astre toucher et la position ou elle a toucher OU None s'il ne touche rien_
     """         
     
-    # Trouver l'astre le plus proche du projectile
-    #astre_proche = min(liste_astre, key= lambda astre: np.linalg.norm(astre.position(t) - new_pos)) 
-    distance_min = float('inf')
+    # Trouver l'astre le plus proche du projectile 
     astre_proche = None
-    astre_position = None 
-    
-    for astre in liste_astre:
-        pos_astre = astre.position(t)
-        dx, dy = pos_astre - pos
+    astre_proche_position = None 
+    distance_min = float('inf')
+    for astre_position in astres_positions:
+        pos_astre = astre_position[1]
+        dx, dy = pos_astre - new_pos
         d2 = dx*dx + dy*dy
         
         if d2<distance_min:
             distance_min = d2
-            astre_proche = astre
-            astre_position = pos_astre
+            astre_proche = astre_position[0]
+            astre_proche_position = pos_astre
     
-    
-    rayon_max = astre_proche.rayon + p.rayon
-    
-    
+    rayon_max = astre_proche.rayon + p.rayon    
+
     if abs(new_pos[0] - pos[0]) < 1e-12:       # si division par 0
         return None, new_pos
     
-    # trouvons la fonction f(x) = ax + b qui relis _pos_ et _new_pos_
+    # 1- trouvons la fonction f(x) = ax + b qui relis _pos_ et _new_pos_
     a = (new_pos[1] - pos[1]) / (new_pos[0] - pos[0])
     b = pos[1] - a * pos[0]    
-    
         
-    # 1- trouvons l'equation du cercle pour lastre                      -> (x - astre_position[0])**2 + (y - astre_position[1] )**2 = r**2
-    # 2- ensuite nous allons remplacer le y dans lequation
+    # 2- trouvons l'equation du cercle pour lastre                      -> (x - astre_position[0])**2 + (y - astre_position[1] )**2 = r**2
+    # 3- ensuite nous allons remplacer le y dans lequation
     # du cercle pour la fct f(x)                                        -> (x - astre_position[0])**2 + (ax + b - astre_position[1] )**2 = r**2
-    # 3- avec des simplifications, nous avons                           -> (1+a**2)*x**2 + (2*a*b - 2*astre_position[0] - 2*a*astre_position[1])*x + (astre_position[0]**2 + astre_position[1]**2 + b**2 - 2*b*astre_position[1] - r**2) = 0
+    # 4- avec des simplifications, nous avons                           -> (1+a**2)*x**2 + (2*a*b - 2*astre_position[0] - 2*a*astre_position[1])*x + (astre_position[0]**2 + astre_position[1]**2 + b**2 - 2*b*astre_position[1] - r**2) = 0
     A = 1 + a**2        
-    B = 2*a*b - 2*astre_position[0] - 2*a*astre_position[1]
-    C = astre_position[0]**2 + astre_position[1]**2 + b**2 - 2*b*astre_position[1] - rayon_max**2
+    B = 2*a*b - 2*astre_proche_position[0] - 2*a*astre_proche_position[1]
+    C = astre_proche_position[0]**2 + astre_proche_position[1]**2 + b**2 - 2*b*astre_proche_position[1] - rayon_max**2
         
-    # 4- Par la formule du discriminant                                 -> discriminant = B**2 - 4AC
+    # 5- Par la formule du discriminant                                 -> discriminant = B**2 - 4AC
     discriminant = (B)**2 - 4*(A)*(C)
     
     # Les tangences produisent parfois des faux positifs
@@ -169,163 +202,136 @@ def est_en_contacte(pos: list[float], new_pos: list[float], p: Projectile,  list
     if discriminant <= 0:
         return None, new_pos
 
-    # 5- par la formule quadratique                                     ->  (x = (-B +_ sqrt(discriminant)) / (2*A))
+    # 6- par la formule quadratique                                     ->  (x = (-B +_ sqrt(discriminant)) / (2*A))
     x1, x2 = float((-B + np.sqrt(discriminant)) / (2*A)), float((-B - np.sqrt(discriminant)) / (2*A))
-        
-    # 6- par lequation f(x)                                             -> (f(x) = ax + b)
+    
+    # 7- par lequation f(x)                                             -> (f(x) = ax + b)
     y1, y2 = float(a*x1 + b), float(a*x2 + b)    
 
-    # 7- Calcule le rectangle englobant du segment [pos, new_pos].
+    # 8- Calcule le rectangle englobant du segment [pos, new_pos].
     # Une intersection avec le cercle n'est valide que si elle
     # se trouve à l'intérieur de ces bornes.
-    xmax, xmin = max(pos[0], new_pos[0]), min(pos[0], new_pos[0]) #(pos[0], new_pos[0]) if pos[0] >= new_pos[0] else (new_pos[0], pos[0])
-    ymax, ymin = max(pos[1], new_pos[1]), min(pos[1], new_pos[1]) # if pos[1] >= new_pos[1] else (new_pos[1], pos[1])
+    xmax, xmin = max(pos[0], new_pos[0]), min(pos[0], new_pos[0]) 
+    ymax, ymin = max(pos[1], new_pos[1]), min(pos[1], new_pos[1]) 
         
-    # 8- regarde si le point passant a f(x) et lequation du cercle est entre les deux positions _pos_ et _new_pos_
-    condition1 = max(xmin, min(x1, xmax)) == x1 and max(ymin, min(y1, ymax)) == y1
-    condition2 = max(xmin, min(x2, xmax)) == x2 and max(ymin, min(y2, ymax)) == y2
+    # 9- regarde si le point passant a f(x) et lequation du cercle est entre les deux positions _pos_ et _new_pos_
+    condition1 = max(xmin, min(x1, xmax)) == x1 and max(ymin, min(y1, ymax)) == y1 # -> si xmin <= x1 <= xmax et ymin <= y1 <=ymax
+    condition2 = max(xmin, min(x2, xmax)) == x2 and max(ymin, min(y2, ymax)) == y2 # -> si xmin <= x2 <= xmax et ymin <= y2 <=ymax
     
     if condition1:
         return astre_proche, (x1, y1)
                 
     elif condition2:
-        return astre_proche, (x2, y2) # pourrais update la derniere position # TODO sa se peux que non car le temps doit etre pile :(
-    
-    
-    
-    
-    # a partir de lequation dun cercle (x**2 + y**2 = r**2) trouvons 
-    
-    
-    
-    # determine le rayon a la deux de la distance entre lastre et le projectile avec pytagore
-    #distance_entre_eux2 = (pos[0] - astre_position[0]) ** 2 + (pos[1] - astre_position[1]) ** 2
-    #rayon_astre2 = rayon_contacte ** 2     
-    
-    #if distance_entre_eux2 < rayon_astre2:
-    #    return astre 
+        return astre_proche, (x2, y2)
     return None, new_pos
 
 
 
 
+#####
+######### A DELETE EVENTUELLEMENT # TODO
+#####
+''' ========================================================== DEBUG ==========================================================  '''
+test = True # pour faire le test des avec les donnees suivant: 
+pos_depart = None # si None -> met la position du projectile a droite de la terre dune distance de 2* le rayon de la terre
+vit_depart = [0,0.01] # [0.01, 0] == contact avec soleil, [0.01,0.01] == touche jamais rien, [0.00012,-0.017] == a peu pres le rond de la terre, [0,0] touche la terre
+''' ===========================================================================================================================  '''
 
-
-
-
-
-
-
-# Creation des astres
-soleil = AstreFixe(
-    nom="Soleil",
-    masse=333000,
-    couleur="jaune",
-    taille=20,
-    rayon=0.005,
-    distance=0,
-    periode=0
-)
-
-terre = AstreFixe(
-    nom="Terre",
-    masse=1,
-    couleur="bleu",
-    taille=8,
-    rayon=0.00005,
-    distance=1.0,
-    periode=365.25
-)
-
-# ==========================
-# Position de départ
-# ==========================
-
-pos_terre = terre.position(0)
-
-# Décale le projectile juste en dehors de la Terre
-direction = pos_terre / np.linalg.norm(pos_terre)
-
-pos_depart = pos_terre + direction * terre.rayon * 2
-vit_terre = -terre.vitesse(0)
-
-# Projectil
-projectile = Projectile(
-    nom="Meteor",
-    masse=0.001,
-    couleur="red",
-    taille=3,
-    rayon=0.00001,
-    pos0=pos_depart,
-    vit0=[0.01,0.01],
-    temps_apparition=0,
-    duree_vie=1000
-)
-
-impact = None
-
-## cree les listes
-'''import cProfile
-import pstats
-
-profiler = cProfile.Profile()
-profiler.enable()
-'''
-
-try:
-    impact = creer_liste_pos_vit_du_projectile(
-        projectile,
-        [soleil, terre],
+if test :
+    # Creation des astres
+    soleil = AstreFixe(
+        nom="Soleil",
+        masse=333000,
+        couleur="jaune",
+        taille=20,
+        rayon=0.005,
+        distance=0,
+        periode=0
     )
-except:
-    print("ok")
-'''
-profiler.disable()
 
-stats = pstats.Stats(profiler)
-stats.sort_stats("cumulative")
-stats.print_stats(20)  # les 20 fonctions les plus coûteuses
-'''
-if impact is None:
-    print("aucun impact")
-else:
-    print(f"impact sur : {impact.nom}")
+    terre = AstreFixe(
+        nom="Terre",
+        masse=1,
+        couleur="bleu",
+        taille=8,
+        rayon=0.00005,
+        distance=1.0,
+        periode=365.25
+    )
 
-print(f"nombre detats : {len(projectile.historique)}")
+    # ==========================
+    # Position de départ
+    # ==========================
+    if pos_depart == None:
+        
+        pos_terre = terre.position(0)
 
-print("\netat initial :")
-print(projectile.historique[0])
+        # Décale le projectile juste en dehors de la Terre
+        direction = pos_terre / np.linalg.norm(pos_terre)
 
-print("\netat final :")
-print(projectile.historique[-1])
+        pos_depart = pos_terre + direction * terre.rayon * 2
+
+    
+
+    # Projectil
+    projectile = Projectile(
+        nom="Meteor",
+        masse=0.001,
+        couleur="red",
+        taille=3,
+        rayon=0.00001,
+        pos0=pos_depart,
+        vit0=vit_depart,
+        temps_apparition=0,
+        duree_vie=1000
+    )
+
+    impact = None
+    try:
+        impact = calculer_trajectoire(
+            projectile,
+            [soleil, terre],
+        )
+    except (TempsMaximumAtteinte, HorsSystemeError) as e:
+        print("O NON :( : ", e, "\n")
+
+    if impact is None:
+        print("aucun impact")
+    else:
+        print(f"impact sur : {impact.nom}")
+    print(f"nombre detats : {len(projectile.historique)}")
+
+    print("\netat initial :")
+    print(projectile.historique[0])
+
+    print("\netat final :")
+    print(projectile.historique[-1])
+
+    # trasse la trajectoire du projectile
+    x = [position[0] for position in projectile.historique]
+    y = [position[1] for position in projectile.historique]
+
+    # Trasse la terre pour 1 ans
+    x_terre = [terre.position(i)[0] for i in range(int(366))] 
+    y_terre = [terre.position(i)[1] for i in range(int(366))] 
+
+    # extremome de la Terre selon la rayon (le bleu dans le graphique)
+    x_rond = []
+    for pos in x_terre:
+        x_rond.extend([pos, pos + terre.rayon, pos, pos - terre.rayon])
+    y_rond = []
+    for pos in y_terre:
+        y_rond.extend([pos + terre.rayon, pos, pos - terre.rayon, pos])
 
 
-x = [position[0] for position in projectile.historique]
-y = [position[1] for position in projectile.historique]
+    x_soleil = [soleil.position(i)[0] for i in range(int(366))] 
+    y_soleil = [soleil.position(i)[1] for i in range(int(366))] 
 
-x_terre = [terre.position(i)[0] for i in range(int(366))] 
+    plt.plot(x,y, 'o--', color = 'm', label= projectile.nom)
+    plt.plot(x_rond, y_rond, 'o')
 
-x_rond = []
-for pos in x_terre:
-    x_rond.extend([pos, pos + terre.rayon, pos, pos - terre.rayon])
-y_terre = [terre.position(i)[1] for i in range(int(366))] 
+    plt.plot(x_terre, y_terre, "o-.", color = 'g', label= terre.nom)
+    plt.plot(x_soleil, y_soleil, "o-.", color ='y', label= soleil.nom)
+    plt.legend()
 
-y_rond = []
-for pos in y_terre:
-    y_rond.extend([pos + terre.rayon, pos, pos - terre.rayon, pos])
-
-
-x_soleil = [soleil.position(i)[0] for i in range(int(366))] 
-
-y_soleil = [soleil.position(i)[1] for i in range(int(366))] 
-
-plt.plot(x,y, 'o--', color = 'm', label= projectile.nom)
-
-plt.plot(x_rond, y_rond, 'o')
-
-plt.plot(x_terre, y_terre, "o-.", color = 'g', label= terre.nom)
-plt.plot(x_soleil, y_soleil, "o-.", color ='y', label= soleil.nom)
-plt.legend()
-
-plt.show()
-
+    plt.show()
