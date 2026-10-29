@@ -5,7 +5,7 @@ ce module contient la classe Projectile qui représente un projectile,
 """
 import numpy as np
 
-from astre import Astre
+from src.astre import Astre
 
 class Projectile(Astre):
     def __init__(self,nom, masse, couleur, taille, rayon,pos0,
