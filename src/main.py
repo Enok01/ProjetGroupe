@@ -13,6 +13,7 @@ class GraphiqueFrame(ctk.CTkFrame):
 
     def __init__(self, master: App, simulateur: Simulation):
         super().__init__(master=master)
+        self.master: App = master # Je redéclare pour que l'EDI arrête de me donner des alertes de type
         self.simulateur: Simulation = simulateur
 
         # Création des composantes MatPlotLib
@@ -32,6 +33,7 @@ class GraphiqueFrame(ctk.CTkFrame):
         # Réinitialise l'axe
         self.ax.clear()
         self.ax.set_aspect("equal")
+        self.simulateur.recalculer()
 
         # --- Repeupler le graphique ---
         # Affichage des astres
@@ -41,12 +43,20 @@ class GraphiqueFrame(ctk.CTkFrame):
                 x, y = astre.position(self.temps)
                 self.ax.scatter(x, y, astre.taille, astre.couleur)
 
+                # Trajectoire
+                trajectoire = [astre.position(t) for t in range(int(astre.periode))]
+
         # Affichage des Projectiles
-        # for projectile in self.simulateur.projectiles:
-        #     if projectile.etat == "actif":
-        #         # Marqueur de position actuelle
-        #         x, y = projectile.position(self.temps)
-        #         self.ax.scatter(x, y, projectile.taille, projectile.couleur)
+        for projectile in self.simulateur.projectiles:
+            if projectile.etat == "actif":
+                # Marqueur de position actuelle
+                x, y = projectile.position(self.temps)
+                self.ax.scatter(x, y, projectile.taille, projectile.couleur)
+
+                # Trajectoire
+                traj_x = projectile.historique[:, 0]
+                traj_y = projectile.historique[:, 1]
+                self.ax.plot(traj_x, traj_y, color=projectile.couleur, marker="")
 
         self.canvas.draw_idle()
 
@@ -59,6 +69,7 @@ class LigneDuTemps(ctk.CTkFrame):
 
     def __init__(self, master: App, simulateur: Simulation):
         super().__init__(master=master)
+        self.master: App = master # Je redéclare pour que l'EDI arrête de me donner des alertes de type
         self.simulateur: Simulation = simulateur
         self.__taille_boutons = 10  # taille des boutons carrés
         self.__temps = 0
@@ -144,6 +155,8 @@ class App(ctk.CTk):
 
     def __init__(self):
         super().__init__()
+
+        # Propriétés de la fenêtre
         self.geometry("600x500")
         self.title("Simulation Projectile Cosmique")
         self.minsize(400, 300)
@@ -152,10 +165,10 @@ class App(ctk.CTk):
         # NE PAS ENLEVER : Nécéssaire pour assurer que la fermeture de la fenêtre se fait sécuritairement.
         self.protocol("WM_DELETE_WINDOW", self.quit)
 
-        # Initialise la simulation
+        # Initialiser la simulation
         self.simulateur = Simulation()
 
-        # Initialise le graphique et la ligne du temps
+        # Initialiser le graphique et la ligne du temps
         self.graphique = GraphiqueFrame(master=self, simulateur=self.simulateur)  # Besoin de la classe de simu pr ça
         self.graphique.grid(row=0, column=0)
         self.ligne_du_temps = LigneDuTemps(master=self, simulateur=self.simulateur)  # Idem
@@ -169,5 +182,16 @@ class App(ctk.CTk):
 
 
 if __name__ == "__main__":
+    from src.astre import AstreFixe
+    from src.projectile import Projectile
+
     app = App()
+    app.simulateur.astres = [
+        AstreFixe("S", 1000, "yellow", 25, 0.05, True),
+        AstreFixe("T", 1, "blue", 2, 0.001, True, 1, 100, 13),
+        AstreFixe("J", 50, "orange", 10, 0.01, True, 4, 500, 342),
+    ]
+    app.simulateur.projectiles = [
+        Projectile("H", 0.001, "green", 1, 0.0001, (1, 1), (0.01, -0.01), 0, 1000, True)
+    ]
     app.mainloop()
