@@ -99,3 +99,14 @@ class PanneauAstres(ctk.CTkScrollableFrame):
                        f"{astre.phase:g}", astre.parent.nom if astre.parent else "—", "oui" if astre.actif else "non")
             for colonne, valeur in enumerate(valeurs, start=1):
                 ctk.CTkLabel(self, text=valeur).grid(row=ligne, column=colonne, padx=6, sticky="w")
+
+
+class BarreOutils(ctk.CTkFrame):
+    #Rangée de boutons : ouvrir un CSV, sauvegarder la simulation et lancer les projectiles.
+
+    #Constructeur de la classe BarreOutils
+    def __init__(self, master, ouvrir, sauvegarder, lancer, **kwargs):
+        super().__init__(master=master, **kwargs)
+        boutons = (("Ouvrir CSV", ouvrir), ("Sauvegarder", sauvegarder), ("Lancer projectile", lancer))
+        for colonne, (texte, commande) in enumerate(boutons):
+            ctk.CTkButton(self, text=texte, command=commande).grid(row=0, column=colonne, padx=4, pady=4)
