@@ -4,27 +4,27 @@ from src.exceptions import (HorsSystemeError, TempsMaximumAtteinte)
 
 import numpy as np
 
-DISTANCE_MAX_AJOUTER = 2 # distance en UA ajouter pour les bornes maximals du projectile pour le considere comme 'hors du systeme'
+DISTANCE_MAX_AJOUTER = 2 # Distance en UA ajoutées pour les bornes maximales du projectile pour le considérer comme 'hors du système'
 
 def calculer_trajectoire(projectile: Projectile, liste_astre: list[AstreFixe], dt: float = 0.1, temps_maximum: int = 3653 ) -> AstreFixe:
-    """_Cree la trajectoire du projectile en calculant sa position et sa vitesse sous les graviter des astre du systeme.
-        Les etats calculer sont enregistrer dans l'historique du projectile._
+    """_Crée la trajectoire du projectile en calculant sa position et sa vitesse sous les gravités des astres du système.
+        Les états calculés sont enregistrés dans l'historique du projectile._
 
     Args:
         projectile (Projectile): _Projectille utiliser pour la trajectoire_
-        liste_astre (list[AstreFixe]): _Systeme des astres fixes dans une liste_
-        dt (float, optional): _pas de temps entre les positions (en jour)_. Inisialiser a 0.1 (recomander pour la rapidite) si plus presi et un peux moins rapide -> 0.01.
-        temps_maximum (int, optional): _nombre de position calculer maximum_. Inisialiser a 3653 jour (10 ans).
+        liste_astre (list[AstreFixe]): _Système des astres fixes dans une liste_
+        dt (float, optional): _pas de temps entre les positions (en jour)_. Initialiser à 0.1 (recommandé pour la rapidité) si plus précis et un peux moins rapide -> 0.01.
+        temps_maximum (int, optional): _nombre de position calculée maximum_. Initialisé à 3653 jours (10 ans).
 
     Raises:
-        HorsSystemeError: _Si le projectile est hors du systeme._
-        TempsMaximumAtteinte: _Si le nombre de temps maximum a ete atteinte._
+        HorsSystemeError: _si le projectile est hors du système._
+        TempsMaximumAtteinte: _si le nombre de temps maximum a été atteint._
 
     Returns:
-        AstreFixe: _Retourne l'astre fixe toucher selement s'il a eu contacte avec un astre fixe_
+        AstreFixe: _retourne l'astre fixe seulement s'il a eu contacte avec un astre fixe_
     """
 
-    # Verifi si tout les valeurs donners sont correct
+    # Vérifi si toutes les valeurs données sont correct
     if not isinstance(projectile, Projectile):
         raise ValueError("Physique : p doit etre un Projectile.")
     if not all(isinstance(astre, AstreFixe) for astre in liste_astre):
@@ -36,49 +36,49 @@ def calculer_trajectoire(projectile: Projectile, liste_astre: list[AstreFixe], d
 
     Nb_iterations_enregistrement = int(1/dt)
 
-    # determine la longueur maximal pour arreter la creation de la liste
+    # détermine la longueur maximale pour arrêter la création de la liste
     astre_loin = max(liste_astre, key= lambda astre: astre.distance)
     distance_max = astre_loin.distance + DISTANCE_MAX_AJOUTER
 
-    # creer une liste de position uqe le projectile a fait
+    # créer une liste de position que le projectile a faite
     pos = projectile.pos0
     vit = projectile.vit0
     t = 0 # en jour
     nombre_diteration_max = int(temps_maximum / dt)
 
     for i in range(nombre_diteration_max):
-        # Enregistre les positions des astres ici comme sela on a pas besoin de trouver tout le temps la position
+        # Enregistre les coordonnées des astres ici, ce qui nous évite de les chercher constamment.
         astres_positions = [(astre, astre.position(t)) for astre in liste_astre]
 
         new_pos, new_vit = prochaine_pos_vit(pos, astres_positions, dt, t, vit)
         contacte, new_pos = est_en_contacte(pos, new_pos, projectile, astres_positions, t)
 
         if contacte != None:
-            projectile.ajouter_etat(new_pos, new_vit) # ajoute la derniere position du projectile (sur lastre)
+            projectile.ajouter_etat(new_pos, new_vit) # ajoute la dernière position du projectile (sur l’astre)
             return contacte
 
         if new_pos[0]**2 + new_pos[1]**2 > distance_max**2:
-            raise HorsSystemeError('Le projectile est hors du systeme.')
+            raise HorsSystemeError('Le projectile est hors du système.')
 
-        # enregistre les positions seulement quand sa fait un jour
+        # Enregistre seulement les positions une fois par jour
         if i%Nb_iterations_enregistrement == 0 and i != 0:
             projectile.ajouter_etat(new_pos, new_vit)
 
         pos, vit = new_pos, new_vit
         t += dt
 
-    raise TempsMaximumAtteinte('Le nombre de temps maximum a ete atteinte.')
+    raise TempsMaximumAtteinte('Le nombre de temps maximum a été atteint.')
 
 
 def acceleration(pos: list[float], astres_positions: list[tuple[AstreFixe, tuple[float,float]]]) -> np.ndarray:
-    """_Calcule l'acceleration (en UA/j²) que les astres actifs exercent sur le projectile a la position _pos__
+    """_Calcule l'accélération (en UA/j²) que les astres actifs exercent sur le projectile a la position _pos__
 
     Args:
-        pos (list[float]): _la position x et y du projectille (en UA)_
-        astres_positions (list[tuple[AstreFixe, tuple[float,float]]]): _liste qui contient toutes les positions des astres et les astres fixes du systeme_
+        pos (list[float]): _la position x et y du projectile (en UA)_
+        astres_positions (list[tuple[AstreFixe, tuple[float,float]]]): _liste qui contient toutes les positions des astres et les astres fixes du système_
 
     Returns:
-        np.ndarray: _acceleration x et y du projectille (en UA/j²)_
+        np.ndarray: _accélération x et y du projectile (en UA/j²)_
     """
     a = np.array([0.0, 0.0])
     for astre, pos_astre in astres_positions:
@@ -92,30 +92,30 @@ def acceleration(pos: list[float], astres_positions: list[tuple[AstreFixe, tuple
         if distance2 < 1e-12: # Pour eviter les divisions par 0
             continue
 
-        # Trouve les vecteurs unitaire du vecteur entre le projectile et l'astre fixe
+        # Trouve les vecteurs unitaires du vecteur entre le projectile et l'astre fixe
         vect_unitaire = vecteur_astre_projectile / np.sqrt(distance2)
 
-        # Calcule la acceleration avec l'equation Fg = Gm1m2/d**2 et a = F/m1, qui combiner ensemble : G * m2/d**2
+        # Calcule l’accélération avec l'équation Fg = Gm1m2/d**2 et a = F/m1, qui combiner ensemble : G * m2/d**2
         a += vect_unitaire * G * astre.masse / distance2
     return a
 
 
 def prochaine_pos_vit(pos: list[float], astres_positions: list[tuple[AstreFixe, tuple[float,float]]], dt: float, t:float, v: list[float]) -> tuple[tuple]:
-    """_Calcule la prochaine vitesse que aura le projectile ainsi que sa prochaine position en utilisant
-    velocity verlet algorithm pour sa conservation denergie a long terme (pour plus dinformation -> https://www.youtube.com/watch?v=ii-N61PeeQU&t=747s)_
+    """_Calcule la prochaine vitesse et la prochaine position du projectile en utilisant
+    l’algorithme de Verlet pour sa conservation d’énergie à long terme. (Pour plus d’information, consulte la vidéo suivante : https://www.youtube.com/watch?v=ii-N61PeeQU&t=747s)
 
     Args:
-        pos (list[float]): _la position x et y du projectille à ce moment (en UA)_
+        pos (list[float]): _la position x et y du projectile à ce moment (en UA)_
         astres_positions (list[tuple[AstreFixe, tuple[float,float]]]): _liste qui contient toutes les positions des astres et les astres fixes du systeme_
-        dt (float): _pas de temps (en j)_
-        t (float): _temps rendu (en j)_
-        v (list[float]): _vitesse x et y du projectille (en UA/j)_
+        dt (float): _pass de pass (en j)_
+        t (float): _tempss rtempsen j)_
+        v (list[float]): _vitesseevitessedu projectile (en UA/j)_
 
     Returns:
         _tuple_ (new_pos, new_vit) :
-            _new_pos_ -> _nouvelle position x et y du projectille (en UA)_
+            _new_pos_ -> _nouvelle position x et y du projectile (en UA)_
 
-            _new_vit_ -> _nouvelle vitesse x et y du projectille (en UA/j)_
+            _new_vit_ -> _nouvelle vitesse x et y du projectile (en UA/j)_
     """
     # 1- Trouvons a(t) -> a
     a = acceleration(pos, astres_positions)
@@ -133,17 +133,17 @@ def prochaine_pos_vit(pos: list[float], astres_positions: list[tuple[AstreFixe, 
 
 
 def est_en_contacte(pos: list[float], new_pos: list[float], p: Projectile,  astres_positions: list[tuple[AstreFixe, tuple[float,float]]], t: float) -> AstreFixe:
-    """_Verifi s'il est en contact ou non en calculant si la trajectoire des deux points ont des points avec lastre le plus proche_
+    """_Vérifie s'il est en contact ou non en calculant si la trajectoire des deux points a des points avec l’astre le plus proche_
 
     Args:
-        pos (list[float]): _la position x et y du projectille au moment presedant (en UA)_
-        new_pos (list[float]): _la nouvelle position x et y du projectille maintenent (en UA)_
-        p (Projectile): _projectile utiliser_
-        astres_positions (list[tuple[AstreFixe, tuple[float,float]]]): _liste qui contient toutes les positions des astres et les astres fixes du systeme_
+        pos (list[float]): _Position x et y du projectile au moment précédant (en UA)_
+        new_pos (list[float]): _Nouvelle position x et y du projectile maintenant (en UA)_
+        p (Projectile): _Projectile lancé_
+        astres_positions (list[tuple[AstreFixe, tuple[float,float]]]): _Liste qui contient toutes les positions des astres et les astres fixes du système_
         t (float): _temps rendu (en jour)_
 
     Returns:
-        AstreFixe: _L'astre toucher et la position ou elle a toucher OU None s'il ne touche rien_
+        AstreFixe: _l'astre touché et la position où elle a toucher OU None s'il ne touche rien_
     """
 
     # Trouver l'astre le plus proche du projectile
@@ -165,14 +165,14 @@ def est_en_contacte(pos: list[float], new_pos: list[float], p: Projectile,  astr
     if abs(new_pos[0] - pos[0]) < 1e-12:       # si division par 0
         return None, new_pos
 
-    # 1- trouvons la fonction f(x) = ax + b qui relis _pos_ et _new_pos_
+    # 1- Trouvons la fonction f(x) = ax + b qui relit _pos_ et _new_pos_
     a = (new_pos[1] - pos[1]) / (new_pos[0] - pos[0])
     b = pos[1] - a * pos[0]
 
-    # 2- trouvons l'equation du cercle pour lastre                      -> (x - astre_position[0])**2 + (y - astre_position[1] )**2 = r**2
-    # 3- ensuite nous allons remplacer le y dans lequation
+    # 2- Trouvons l'équation du cercle pour l’astre                      -> (x - astre_position[0])**2 + (y - astre_position[1] )**2 = r**2
+    # 3- Ensuite, nous allons remplacer le y dans liquation
     # du cercle pour la fct f(x)                                        -> (x - astre_position[0])**2 + (ax + b - astre_position[1] )**2 = r**2
-    # 4- avec des simplifications, nous avons                           -> (1+a**2)*x**2 + (2*a*b - 2*astre_position[0] - 2*a*astre_position[1])*x + (astre_position[0]**2 + astre_position[1]**2 + b**2 - 2*b*astre_position[1] - r**2) = 0
+    # 4- avec des simplifications, nous avons                           -> (1+a**2)*x**2 + (2*a*b - 2*astre_position[0] - 2*a*astre_position[1])*x + (astre_position[0]**2 + astre_position[1]**2 + b**2 - 2*b*astre_position[1] - rayon_max**2) = 0
     A = 1 + a**2
     B = 2*a*b - 2*astre_proche_position[0] - 2*a*astre_proche_position[1]
     C = astre_proche_position[0]**2 + astre_proche_position[1]**2 + b**2 - 2*b*astre_proche_position[1] - rayon_max**2
@@ -180,7 +180,7 @@ def est_en_contacte(pos: list[float], new_pos: list[float], p: Projectile,  astr
     # 5- Par la formule du discriminant                                 -> discriminant = B**2 - 4AC
     discriminant = (B)**2 - 4*(A)*(C)
 
-    # Les tangences produisent parfois des faux positifs
+    # Les tangences produisent parfois de faux positifs
     # à cause des trajectoires quasi verticales.
     if discriminant <= 0:
         return None, new_pos
@@ -188,7 +188,7 @@ def est_en_contacte(pos: list[float], new_pos: list[float], p: Projectile,  astr
     # 6- par la formule quadratique                                     ->  (x = (-B +_ sqrt(discriminant)) / (2*A))
     x1, x2 = float((-B + np.sqrt(discriminant)) / (2*A)), float((-B - np.sqrt(discriminant)) / (2*A))
 
-    # 7- par lequation f(x)                                             -> (f(x) = ax + b)
+    # 7- par l'équation f(x)                                             -> (f(x) = ax + b)
     y1, y2 = float(a*x1 + b), float(a*x2 + b)
 
     # 8- Calcule le rectangle englobant du segment [pos, new_pos].
@@ -197,7 +197,7 @@ def est_en_contacte(pos: list[float], new_pos: list[float], p: Projectile,  astr
     xmax, xmin = max(pos[0], new_pos[0]), min(pos[0], new_pos[0])
     ymax, ymin = max(pos[1], new_pos[1]), min(pos[1], new_pos[1])
 
-    # 9- regarde si le point passant a f(x) et lequation du cercle est entre les deux positions _pos_ et _new_pos_
+    # 9- regarde si le point passant a f(x) et liquation du cercle est entre les deux positions _pos_ et _new_pos_
     condition1 = max(xmin, min(x1, xmax)) == x1 and max(ymin, min(y1, ymax)) == y1 # -> si xmin <= x1 <= xmax et ymin <= y1 <=ymax
     condition2 = max(xmin, min(x2, xmax)) == x2 and max(ymin, min(y2, ymax)) == y2 # -> si xmin <= x2 <= xmax et ymin <= y2 <=ymax
 
