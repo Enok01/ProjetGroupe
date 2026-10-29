@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import customtkinter as ctk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt

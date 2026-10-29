@@ -12,10 +12,10 @@ Prérequis : Python 3.10 ou plus récent.
 git clone https://github.com/Enok01/ProjetGroupe.git
 cd ProjetGroupe
 pip install -r requirements.txt
-python main.py
+python -m src.main
 ```
 
-> La classe `Simulation` n'est pas encore écrite : tant qu'elle n'existe pas, `main.py` ne démarre pas.
+> Le programme se lance depuis la racine du dépôt : tous les imports passent par `src.` (ex. `from src.astre import AstreFixe`).
 
 ## Organisation du code
 

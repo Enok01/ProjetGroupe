@@ -1,7 +1,7 @@
 from src.astre import AstreFixe
 from src.projectile import Projectile
-import src.physique_Kelper as Physique
-from src.physique_Kelper import creer_liste_position_du_projectile as calculer_trajectoire
+import src.physique as Physique
+from src.physique import calculer_trajectoire
 import csv
 
 
@@ -9,7 +9,7 @@ class Simulation:
     """Contient la liste des astres et projectiles, et génère leurs trajectoires via physique_Kepler"""
     def __init__(self):
         self.astres: list[AstreFixe] = []
-        self.projectiles: list[Projectile]
+        self.projectiles: list[Projectile] = []
         self.dt = 0.1
 
     def temps_max(self, padt=100):
