@@ -71,3 +71,31 @@ def tracer_orbite(ax, astre, t: float, points: int = 100):
     x = centre[0] + astre.distance * np.cos(angles)
     y = centre[1] + astre.distance * np.sin(angles)
     ax.plot(x, y, linestyle=":", linewidth=0.8, color=astre.couleur, alpha=0.6)
+
+
+class PanneauAstres(ctk.CTkScrollableFrame):
+    #Tableau défilant qui affiche chaque astre fixe et ses caractéristiques.
+    """
+    Colonnes : couleur, nom, masse (masses terrestres), rayon (UA), distance (UA),
+    période (jours), phase (degrés), parent et actif.
+    """
+
+    COLONNES = ("", "Nom", "Masse (MT)", "Rayon (UA)", "Distance (UA)", "Période (j)", "Phase (°)", "Parent", "Actif")
+
+    #Constructeur de la classe PanneauAstres
+    def __init__(self, master, astres=(), **kwargs):
+        super().__init__(master=master, label_text="Astres fixes", **kwargs)
+        self.afficher(astres)
+
+    def afficher(self, astres):
+        #Efface le tableau puis écrit une ligne d'en-tête et une ligne par astre.
+        for widget in self.winfo_children():
+            widget.destroy()
+        for colonne, titre in enumerate(self.COLONNES):
+            ctk.CTkLabel(self, text=titre, font=ctk.CTkFont(weight="bold")).grid(row=0, column=colonne, padx=6, sticky="w")
+        for ligne, astre in enumerate(astres, start=1):
+            ctk.CTkLabel(self, text="", width=14, height=14, fg_color=astre.couleur, corner_radius=7).grid(row=ligne, column=0, padx=6)
+            valeurs = (astre.nom, f"{astre.masse:g}", f"{astre.rayon:.3g}", f"{astre.distance:g}", f"{astre.periode:g}",
+                       f"{astre.phase:g}", astre.parent.nom if astre.parent else "—", "oui" if astre.actif else "non")
+            for colonne, valeur in enumerate(valeurs, start=1):
+                ctk.CTkLabel(self, text=valeur).grid(row=ligne, column=colonne, padx=6, sticky="w")
