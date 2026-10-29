@@ -1,8 +1,6 @@
 from src.astre import AstreFixe
 from src.projectile import Projectile
-import src.physique as Physique
 from src.physique import calculer_trajectoire
-import csv
 
 
 class Simulation:
@@ -28,3 +26,7 @@ class Simulation:
     def recalculer(self):
         for projectile in self.projectiles:
             projectile.historique = calculer_trajectoire(projectile, self.astres, self.dt, self.temps_max())
+
+    def importer(self, path: str):
+        # TODO: Implémenter la méthode à Demba
+        pass
