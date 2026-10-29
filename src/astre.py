@@ -2,6 +2,13 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 
+#Constante gravitationnelle convertie dans les unités du programme : UA³ / (masse terrestre · jour²) ≈ 8,888e-10
+G_SI = 6.67430e-11          # m³ / (kg · s²)
+MT_EN_KG = 5.9722e24        # masse terrestre en kg
+JOUR_EN_S = 86400.0         # jour en secondes
+UA_EN_M = 149597870700.0    # unité astronomique en mètres
+G = G_SI * MT_EN_KG * JOUR_EN_S ** 2 / UA_EN_M ** 3
+
 
 def en_booleen(valeur) -> bool:
     #Convertit la valeur « actif » du CSV ou d'un formulaire en booléen.
@@ -47,6 +54,26 @@ class Astre(ABC):
     def position(self, t: float) -> np.ndarray:
         #Renvoie la position (x, y) en UA au temps t (jours), tableau numpy de forme (2,).
         pass
+
+    def distance_a(self, point, t: float) -> float:
+        #Distance en UA entre le centre de l'objet au temps t et un point (x, y).
+        return float(np.linalg.norm(np.asarray(point, dtype=float) - self.position(t)))
+
+    def contient(self, point, t: float) -> bool:
+        #Vrai si le point (x, y) est à l'intérieur du rayon de collision au temps t (sert à détecter les collisions).
+        return self.distance_a(point, t) < self.rayon
+
+    def acceleration_sur(self, point, t: float) -> np.ndarray:
+        #Accélération gravitationnelle (UA/jour²) que l'objet exerce sur un point (x, y) au temps t :
+        #a = G * M * (r_astre - r) / ||r_astre - r||³. Un objet inactif ou sans masse n'attire pas.
+        if not self.actif or self.masse == 0:
+            return np.zeros(2)
+        ecart = self.position(t) - np.asarray(point, dtype=float)
+        distance = np.linalg.norm(ecart)
+        if distance == 0:
+            #Point au centre exact : la force n'est pas définie, on renvoie zéro pour éviter la division par 0
+            return np.zeros(2)
+        return G * self.masse * ecart / distance ** 3
 
     def __str__(self):
         return f"Astre(nom={self.nom}, masse={self.masse}, couleur={self.couleur}, taille={self.taille}, rayon={self.rayon}, actif={self.actif})"
