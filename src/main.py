@@ -68,31 +68,31 @@ class LigneDuTemps(ctk.CTkFrame):
             master=self,
             text="\u23f9",
             width=self.__taille_boutons, height=self.__taille_boutons,
-            command=self.__cmd_stop
+            command=self.__commande_arret
         )
         self.play_pause = ctk.CTkButton(
             master=self,
             text="\u23f5",
             width=self.__taille_boutons, height=self.__taille_boutons,
-            command=self.__cmd_play
+            command=self.__commande_lecture
         )
         self.fforward = ctk.CTkButton(
             master=self,
             text="\u23ed",
             width=self.__taille_boutons, height=self.__taille_boutons,
-            command=self.__cmd_fforward
+            command=self.__commande_suivant
         )
         self.back = ctk.CTkButton(
             master=self,
             text="\u23ee",
             width=self.__taille_boutons, height=self.__taille_boutons,
-            command=self.__cmd_back
+            command=self.__commande_precedent
         )
         self.slider = ctk.CTkSlider(
             master=self,
             height=self.__taille_boutons,
             from_=0, to=simulateur.temps_max(),
-            command=self.__cmd_slider
+            command=self.__commande_curseur
         )
 
         # Arranger les widgets
@@ -107,34 +107,34 @@ class LigneDuTemps(ctk.CTkFrame):
         return self.__temps
 
     @temps.setter
-    def temps(self, value):
-        self.__temps = value
+    def temps(self, valeur):
+        self.__temps = valeur
         self.master.graphique.redessiner()
-        self.slider.set(value)
+        self.slider.set(valeur)
 
-    def __cmd_stop(self):
+    def __commande_arret(self):
         """Arrête le défilement du temps et revient à t=0."""
         pass
 
-    def __cmd_play(self):
+    def __commande_lecture(self):
         """Fait défiler le temps."""
-        self.play_pause.configure(text="\u23f8", command=self.__cmd_pause)
+        self.play_pause.configure(text="\u23f8", command=self.__commande_pause)
 
-    def __cmd_pause(self):
+    def __commande_pause(self):
         """Met sur pause le défilement du temps."""
-        self.play_pause.configure(text="\u23f5", command=self.__cmd_play)
+        self.play_pause.configure(text="\u23f5", command=self.__commande_lecture)
 
-    def __cmd_fforward(self):
+    def __commande_suivant(self):
         """Avance jusqu'au prochain moment-clé."""
         pass
 
-    def __cmd_back(self):
+    def __commande_precedent(self):
         """Retourne au moment-clé précédent."""
         pass
 
-    def __cmd_slider(self, value):
+    def __commande_curseur(self, valeur):
         """Met à jour le temps lorsque le slider est utilisé"""
-        self.temps = value
+        self.temps = valeur
 
 
 class App(ctk.CTk):

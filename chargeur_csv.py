@@ -36,7 +36,7 @@ def charger_csv(fichier):
 
     """
     df = lire_csv(fichier)
-    erreurs = validate_csv(df)
+    erreurs = valider_csv(df)
     
     if erreurs:
         raise ValueError("\n".join(erreurs))
@@ -44,7 +44,7 @@ def charger_csv(fichier):
     
     return df
 
-def validate_csv(df):
+def valider_csv(df):
     """
     Vérifie le contenu du DataFrame lu dans le CSV.
     Args:
