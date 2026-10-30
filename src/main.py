@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import customtkinter as ctk
+import numpy as np
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
 from src.sim import Simulation  # placeholder
@@ -44,7 +45,8 @@ class GraphiqueFrame(ctk.CTkFrame):
                 self.ax.scatter(x, y, astre.taille, astre.couleur)
 
                 # Trajectoire
-                trajectoire = [astre.position(t) for t in range(int(astre.periode))]
+                trajectoire = np.array([astre.position(t) for t in range(int(astre.periode))])
+                self.ax.plot(trajectoire[:,0], trajectoire[:,1], color=astre.couleur, marker="")
 
         # Affichage des Projectiles
         for projectile in self.simulateur.projectiles:
@@ -192,6 +194,8 @@ class App(ctk.CTk):
         # NE PAS ENLEVER : Nécéssaire pour assurer que la fermeture de la fenêtre se fait sécuritairement.
         self.protocol("WM_DELETE_WINDOW", self.quit)
 
+        self.protocol()
+
         # Initialiser la simulation
         self.simulateur = Simulation()
 
@@ -220,6 +224,7 @@ if __name__ == "__main__":
         AstreFixe("J", 50, "orange", 10, 0.01, True, 4, 500, 342),
     ]
     app.simulateur.projectiles = [
-        Projectile("H", 0.001, "green", 1, 0.0001, (1, 1), (0.01, -0.01), 0, 1000, True)
+        Projectile("H", 0.001, "green", 1, 0.0001, (1, 1), (0.0, 0.0), 0, 1000, True)
     ]
+    app.graphique.redessiner()
     app.mainloop()
