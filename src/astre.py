@@ -6,6 +6,23 @@ Documentation officielle :
     classes abstraites (abc) : https://docs.python.org/3/library/abc.html
     pandas Series.get (lecture d'une ligne du CSV) : https://pandas.pydata.org/docs/reference/api/pandas.Series.get.html
 """
+
+"""_summary_
+
+    Raises:
+        ValueError: _description_
+        ValueError: _description_
+        ValueError: _description_
+        ValueError: _description_
+        ValueError: _description_
+        ValueError: _description_
+        ValueError: _description_
+        ValueError: _description_
+        ValueError: _description_
+
+    Returns:
+        _type_: _description_
+"""
 from abc import ABC, abstractmethod
 
 import numpy as np
@@ -19,6 +36,17 @@ G = G_SI * MT_EN_KG * JOUR_EN_S ** 2 / UA_EN_M ** 3
 
 
 def en_booleen(valeur) -> bool:
+    """_summary_
+
+    Args:
+        valeur (_type_): _description_
+
+    Raises:
+        ValueError: _description_
+
+    Returns:
+        bool: _description_
+    """
     #Convertit la valeur « actif » du CSV ou d'un formulaire en booléen.
     #Attention : bool("false") vaut True en Python, d'où cette fonction.
     #np.bool_ : le type booléen de numpy, que pandas donne quand il lit true/false dans le CSV
@@ -34,6 +62,7 @@ def en_booleen(valeur) -> bool:
 
 
 class Astre(ABC):
+    
     #Classe abstraite commune aux astres fixes et aux projectiles.
     """
     Attributs :
@@ -66,6 +95,15 @@ class Astre(ABC):
         pass
 
     def distance_a(self, point, t: float) -> float:
+        """_summary_
+
+        Args:
+            point (_type_): _description_
+            t (float): _description_
+
+        Returns:
+            float: _description_
+        """
         #Distance en UA entre le centre de l'objet au temps t et un point (x, y).
         #np.asarray transforme le point (liste ou tuple) en tableau numpy pour pouvoir soustraire
         #https://numpy.org/doc/stable/reference/generated/numpy.asarray.html
@@ -78,6 +116,15 @@ class Astre(ABC):
         return self.distance_a(point, t) < self.rayon
 
     def acceleration_sur(self, point, t: float) -> np.ndarray:
+        """_summary_
+
+        Args:
+            point (_type_): _description_
+            t (float): _description_
+
+        Returns:
+            np.ndarray: _description_
+        """
         #Accélération gravitationnelle (UA/jour²) que l'objet exerce sur un point (x, y) au temps t :
         #a = G * M * (r_astre - r) / ||r_astre - r||³. Un objet inactif ou sans masse n'attire pas.
         if not self.actif or self.masse == 0:
@@ -107,6 +154,25 @@ class AstreFixe(Astre):
     #Constructeur de la classe AstreFixe
     def __init__(self, nom: str, masse: float, couleur: str, taille: float, rayon: float, actif: bool = True,
                  distance: float = 0.0, periode: float = 0.0, phase: float = 0.0, parent=None):
+        """_summary_
+
+        Args:
+            nom (str): _description_
+            masse (float): _description_
+            couleur (str): _description_
+            taille (float): _description_
+            rayon (float): _description_
+            actif (bool, optional): _description_. Defaults to True.
+            distance (float, optional): _description_. Defaults to 0.0.
+            periode (float, optional): _description_. Defaults to 0.0.
+            phase (float, optional): _description_. Defaults to 0.0.
+            parent (_type_, optional): _description_. Defaults to None.
+
+        Raises:
+            ValueError: _description_
+            ValueError: _description_
+            ValueError: _description_
+        """
         super().__init__(nom, masse, couleur, taille, rayon, actif)
         try:
             self.distance = float(distance)
@@ -191,4 +257,9 @@ class AstreFixe(Astre):
         )
 
     def __str__(self):
+        """_summary_
+
+        Returns:
+            _type_: _description_
+        """
         return f"AstreFixe(nom={self.nom}, masse={self.masse}, distance={self.distance}, periode={self.periode}, phase={self.phase}, actif={self.actif})"
