@@ -1,6 +1,8 @@
 import pandas as pd
+import random
+from matplotlib.colors import is_color_like, to_hex
 
-COLONNES_communes = ["nom", "masse", "couleur", "taille", "rayon", "actif"]  #couleur rgb 
+COLONNES_communes = ["nom", "masse", "couleur", "taille", "rayon", "actif"] 
 COLONNES_fixes = ["distance", "periode", "phase", "parent"]
 COLONNES_projectiles = ["x0", "y0", "vx0", "vy0", "temps_apparition", "duree_vie"]
 COLONNES_tous = ["type"]+COLONNES_communes + COLONNES_fixes + COLONNES_projectiles
@@ -25,7 +27,57 @@ def lire_csv(fichier):
     if df.empty:
         raise ValueError(f"le fichier {fichier} ne contient aucune objet")  #verifie qu'il y a au moins un objet dans le fichier
     return df
-    
+
+def couleur_aleatoire(couleurs_utilisees):
+    """
+    Retourne une couleur au hasard, au format "#rrggbb", qui n'est pas déjà utilisée.
+
+    Args:
+        couleurs_utilisees (set[str]): Couleurs déjà prises, au format "#rrggbb".
+
+    Returns:
+        str: Une nouvelle couleur.
+    """
+    while True:
+        rouge = random.randint(0, 255)
+        vert = random.randint(0, 255)
+        bleu = random.randint(0, 255)
+        couleur = f"#{rouge:02x}{vert:02x}{bleu:02x}"  #Transforme en hexadécimal. J'en ai besoin parce que c'est ca que matplotlib comprend
+        if couleur not in couleurs_utilisees:
+            return couleur
+
+        
+def corriger_couleurs(df):
+    """
+    Donne une couleur au hasard aux objets dont la couleur est vide, invalide
+    ou déjà utilisée par un objet plus haut dans le fichier.
+    **  Je pars du principe que ce qui va avoir dans le tableau est soit le nom ou la couleur (exemple : rouge), ou la valeur en hexadécimal (exemple : #rrggbb). 
+    Args:
+        df (pd.DataFrame): Données validées.
+
+    Returns:
+        pd.DataFrame: Une copie du DataFrame avec des couleurs toutes différentes.
+    """
+    df = df .copy() # comme ca on ne modifie pas le DataFrame reçu
+    couleurs_utilisees = set() #Sert juste à comparer, au cas où on a besoin d'une nouvelle couleur et qu'on ne remet pas la même couleur ou une couleur qui existe déjà. 
+
+    for id, row in df.iterrows():
+        couleur = row["couleur"]
+
+        #Pour que tout soit équitable, on va changer les valeurs de couleur en hexadécimal. 
+        if isinstance(couleur,str) and is_color_like(couleur.strip()):   # is_color_like va returne un true si c'est une couleur valide de matplotlib
+            couleur_hex = to_hex(couleur.strip())
+        else:
+            couleur_hex = None # car c,est soit une case vide ou une couleur mal ecrit
+
+        if couleur_hex is None or couleur_hex in couleurs_utilisees:
+            couleur_hex = couleur_aleatoire(couleurs_utilisees)
+            df.at[id, "couleur"]= couleur_hex      # On remplace seulement si nécessaire
+
+        couleurs_utilisees.add(couleur_hex)
+
+    return df
+
 def charger_csv(fichier):
     """
     Charge un fichier CSV et retourne un DataFrame avec les colonnes attendues.
@@ -42,7 +94,7 @@ def charger_csv(fichier):
         raise ValueError("\n".join(erreurs))
 
     
-    return df
+    return corriger_couleurs(df), fichier #Ça te va comme ça, liam, pour retourner le chemin? 
 
 def valider_csv(df):
     """
@@ -70,14 +122,14 @@ def valider_csv(df):
             erreurs.append(f" la valeur de 'nom' pour l'objet à l'index {id} est vide. Le nom doit être une chaîne de caractères non vide.")  
             continue  # On peut arrêter la vérification si le nom est vide, car c'est une erreur critique!
 
-        if str(row["type"]).lower() not in ("true", "false"): #On ne sait pas si le type va être écrit comme un booléen ou un texte en minuscule, donc on transforme en minuscule pour être sûr 
-            erreurs.append(f" la valeur de 'type' pour l'objet {row['nom']} n'est pas valide : {row['type']}. La valeur doit être un booléen.")
-            continue # Erreur critique! sans type on ne sais pas Quelle colonne vérifier. 
+        if str(row["type"]).strip() not in ("AstreFixe", "Projectile"): # Le type doit être le nom d'une des deux classes. strip() enlève les espaces autour
+            erreurs.append(f" la valeur de 'type' pour l'objet {row['nom']} n'est pas valide : {row['type']}. La valeur doit être AstreFixe ou Projectile.")
+            continue # Erreur critique! sans type on ne sais pas Quelle colonne vérifier.
 
-        if str(row["actif"]).lower() not in ("true", "false"): # Même raison que plus tôt 
+        if str(row["actif"]).lower() not in ("true", "false"): #On ne sait pas si le type va être écrit comme un booléen ou un texte en minuscule, donc on transforme en minuscule pour être sûr 
              erreurs.append(f" la valeur de 'actif' pour l'objet {row['nom']} n'est pas valide : {row['actif']}. La valeur doit être un booléen.")
 
-        est_fixe:bool = str(row["type"]).lower() == "true" 
+        est_fixe:bool = str(row["type"]).strip() == "AstreFixe"
 
         # on va départager les colonne avec les nb ce qu'on a besoin de vérifier en fonction de si c'est fixe ou pas. 
         
@@ -151,30 +203,30 @@ def sauvegarder(sim, fichier):
 
     for astre in sim.astres:  # Je suppose qu'il y a un self.astres = [] dans la classe simulation. 
         lignes.append({
-            "type": "true",
+            "type": "AstreFixe",
             "nom": astre.nom,
             "masse": astre.masse,
             "couleur": astre.couleur,
             "taille": astre.taille,
             "rayon": astre.rayon,
-            "actif": str(astre.actif).lower,
+            "actif": str(astre.actif).lower(),
             "distance": astre.distance,
             "periode": astre.periode,
             "phase": astre.phase,
-            "parent": astre.parent.nom 
+            "parent": astre.parent.nom if astre.parent is not None else None # On ne veut pas de conflit s'il n'y a pas de parents. 
         })
 
     for projectile in sim.projectiles:
         
         x, y, vx, vy = projectile.historique[0]
         lignes.append({
-            "type": "false",
+            "type": "Projectile",
             "nom": projectile.nom,
             "masse": projectile.masse,
             "couleur": projectile.couleur,
             "taille": projectile.taille,
             "rayon": projectile.rayon,
-            "actif": str(projectile.actif).lower,
+            "actif": str(projectile.actif).lower(),
             "x0": x,
             "y0": y,
             "vx0": vx,
@@ -184,5 +236,12 @@ def sauvegarder(sim, fichier):
         })
 
     df = pd.DataFrame(lignes, columns=COLONNES_tous)
+
+    try:
+        df.to_csv(fichier, index=False)
+    except PermissionError:
+        raise ValueError(f"Impossible d'écrire dans « {fichier} ». il est peut-être ouvert dans un autre programme.")
+    except OSError:
+          raise ValueError(f"Impossible de créer le fichier « {fichier} ». Vérifiez que le dossier existe.")
 
     
