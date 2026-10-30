@@ -1,8 +1,12 @@
 import pandas as pd
 
-COLONNES_communes = ["nom", "masse", "couleur", "taille", "rayon", "actif"]  #couleur rgb 
+from src.astre import AstreFixe, en_booleen  # Levy : pour créer les objets dans charger_csv
+from src.projectile import Projectile
+
+COLONNES_communes = ["nom", "masse", "couleur", "taille", "rayon", "actif"]  #couleur rgb
 COLONNES_fixes = ["distance", "periode", "phase", "parent"]
-COLONNES_projectiles = ["x0", "y0", "vx0", "vy0", "temps_apparition", "duree_vie"]
+COLONNES_projectiles = ["x0", "y0", "vx0", "vy0", "temps d'apparition", "durree de vie"]  # Levy : mêmes noms que dans donnees/systeme_solaire.csv (sinon notre propre fichier était refusé)
+APPARITION, DUREE = COLONNES_projectiles[4], COLONNES_projectiles[5]  # Levy : noms écrits une seule fois, utilisés plus bas
 COLONNES_tous = ["type"]+COLONNES_communes + COLONNES_fixes + COLONNES_projectiles
 
 def lire_csv(fichier):
@@ -28,21 +32,39 @@ def lire_csv(fichier):
     
 def charger_csv(fichier):
     """
-    Charge un fichier CSV et retourne un DataFrame avec les colonnes attendues.
+    Charge un fichier CSV, le vérifie et crée les objets de la simulation.
     Args:
         fichier (str): Chemin vers le fichier CSV.
     Returns:
-        pd.DataFrame: DataFrame contenant les données du CSV.
+        tuple: (liste des AstreFixe, liste des Projectile).
 
     """
     df = lire_csv(fichier)
     erreurs = valider_csv(df)
-    
+
     if erreurs:
         raise ValueError("\n".join(erreurs))
 
-    
-    return df
+    # Levy : on renvoie des objets au lieu du DataFrame, sinon la simulation ne peut rien en faire
+    astres, projectiles, parents = [], [], []
+    # Levy : iterrows parcourt le tableau ligne par ligne et donne (index, ligne)
+    # https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.iterrows.html
+    for _, row in df.iterrows():
+        if str(row["type"]).strip().lower() == "astrefixe":
+            astres.append(AstreFixe.depuis_ligne(row))
+            parents.append(row["parent"])
+        else:
+            projectiles.append(Projectile(str(row["nom"]).strip(), row["masse"], str(row["couleur"]).strip(), row["taille"], row["rayon"],
+                                          (row["x0"], row["y0"]), (row["vx0"], row["vy0"]),
+                                          float(row[APPARITION]), float(row[DUREE]), en_booleen(row["actif"])))
+
+    # Levy : relie chaque lune à son parent (valider_csv a déjà vérifié que le parent existe)
+    par_nom = {astre.nom: astre for astre in astres}
+    for astre, parent in zip(astres, parents):
+        # Levy : pd.isna est vrai pour une case vide (NaN) : https://pandas.pydata.org/docs/reference/api/pandas.isna.html
+        if not pd.isna(parent):
+            astre.parent = par_nom[str(parent).strip()]
+    return astres, projectiles
 
 def valider_csv(df):
     """
@@ -70,14 +92,14 @@ def valider_csv(df):
             erreurs.append(f" la valeur de 'nom' pour l'objet à l'index {id} est vide. Le nom doit être une chaîne de caractères non vide.")  
             continue  # On peut arrêter la vérification si le nom est vide, car c'est une erreur critique!
 
-        if str(row["type"]).lower() not in ("true", "false"): #On ne sait pas si le type va être écrit comme un booléen ou un texte en minuscule, donc on transforme en minuscule pour être sûr 
-            erreurs.append(f" la valeur de 'type' pour l'objet {row['nom']} n'est pas valide : {row['type']}. La valeur doit être un booléen.")
+        if str(row["type"]).strip().lower() not in ("astrefixe", "projectile"): # Levy : le CSV écrit AstreFixe ou Projectile, pas true/false
+            erreurs.append(f" la valeur de 'type' pour l'objet {row['nom']} n'est pas valide : {row['type']}. La valeur doit être AstreFixe ou Projectile.")
             continue # Erreur critique! sans type on ne sais pas Quelle colonne vérifier. 
 
         if str(row["actif"]).lower() not in ("true", "false"): # Même raison que plus tôt 
              erreurs.append(f" la valeur de 'actif' pour l'objet {row['nom']} n'est pas valide : {row['actif']}. La valeur doit être un booléen.")
 
-        est_fixe:bool = str(row["type"]).lower() == "true" 
+        est_fixe:bool = str(row["type"]).strip().lower() == "astrefixe"  # Levy : même raison que pour le type
 
         # on va départager les colonne avec les nb ce qu'on a besoin de vérifier en fonction de si c'est fixe ou pas. 
         
@@ -85,7 +107,7 @@ def valider_csv(df):
         if est_fixe:
             colonnes_nombres += ["distance", "periode", "phase"]
         else:
-            colonnes_nombres += ["temps_apparition", "duree_vie", "x0", "y0", "vx0", "vy0"]
+            colonnes_nombres += [APPARITION, DUREE, "x0", "y0", "vx0", "vy0"]  # Levy : noms des colonnes du CSV
         
         
         valeurs = {}  # les valeurs converties en nombres
@@ -119,11 +141,11 @@ def valider_csv(df):
                 erreurs.append(f" la valeur de 'periode' pour l'objet {row['nom']} n'est pas valide : {row['periode']}. La valeur doit être positive.")
 
         else:
-            if valeurs["temps_apparition"] < 0:
-                erreurs.append(f" la valeur de 'temps_apparition' pour l'objet {row['nom']} n'est pas valide : {row['temps_apparition']}. La valeur doit être positive.")
+            if valeurs[APPARITION] < 0:  # Levy : noms des colonnes du CSV
+                erreurs.append(f" la valeur de '{APPARITION}' pour l'objet {row['nom']} n'est pas valide : {row[APPARITION]}. La valeur doit être positive.")
 
-            if valeurs["duree_vie"] <= 0:
-                erreurs.append(f" la valeur de 'duree_vie' pour l'objet {row['nom']} n'est pas valide : {row['duree_vie']}. La valeur doit être positive.") 
+            if valeurs[DUREE] <= 0:  # Levy : noms des colonnes du CSV
+                erreurs.append(f" la valeur de '{DUREE}' pour l'objet {row['nom']} n'est pas valide : {row[DUREE]}. La valeur doit être positive.")
 
 
 
@@ -151,38 +173,42 @@ def sauvegarder(sim, fichier):
 
     for astre in sim.astres:  # Je suppose qu'il y a un self.astres = [] dans la classe simulation. 
         lignes.append({
-            "type": "true",
+            "type": "AstreFixe",  # Levy : même valeur que dans le CSV lu
             "nom": astre.nom,
             "masse": astre.masse,
             "couleur": astre.couleur,
             "taille": astre.taille,
             "rayon": astre.rayon,
-            "actif": str(astre.actif).lower,
+            "actif": str(astre.actif).lower(),  # Levy : il manquait () pour appeler lower
             "distance": astre.distance,
             "periode": astre.periode,
             "phase": astre.phase,
-            "parent": astre.parent.nom 
+            "parent": astre.parent.nom if astre.parent else ""  # Levy : plantait pour un astre sans parent
         })
 
     for projectile in sim.projectiles:
         
         x, y, vx, vy = projectile.historique[0]
         lignes.append({
-            "type": "false",
+            "type": "Projectile",  # Levy : même valeur que dans le CSV lu
             "nom": projectile.nom,
             "masse": projectile.masse,
             "couleur": projectile.couleur,
             "taille": projectile.taille,
             "rayon": projectile.rayon,
-            "actif": str(projectile.actif).lower,
+            "actif": str(projectile.actif).lower(),  # Levy : il manquait () pour appeler lower
             "x0": x,
             "y0": y,
             "vx0": vx,
             "vy0": vy,
-            "temps_apparition": projectile.temps_apparition,
-            "duree_vie": projectile.duree_vie,
+            APPARITION: projectile.temps_apparition,  # Levy : noms des colonnes du CSV
+            DUREE: projectile.duree_vie,
         })
 
     df = pd.DataFrame(lignes, columns=COLONNES_tous)
-
-    
+    try:
+        df.to_csv(fichier, index=False)  # Levy : le fichier n'était jamais écrit
+        # Levy : to_csv écrit le tableau dans un fichier, index=False évite une colonne de numéros en plus
+        # https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.to_csv.html
+    except OSError:
+        raise ValueError(f"le fichier {fichier} n'a pas pu être écrit.")  # Levy : comme annoncé dans la docstring

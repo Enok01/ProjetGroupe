@@ -1,3 +1,11 @@
+"""
+Classes des objets de la simulation (Levy) : Astre (classe abstraite) et AstreFixe (orbite circulaire).
+
+Documentation officielle :
+    numpy : https://numpy.org/doc/stable/reference/
+    classes abstraites (abc) : https://docs.python.org/3/library/abc.html
+    pandas Series.get (lecture d'une ligne du CSV) : https://pandas.pydata.org/docs/reference/api/pandas.Series.get.html
+"""
 from abc import ABC, abstractmethod
 
 import numpy as np
@@ -13,6 +21,8 @@ G = G_SI * MT_EN_KG * JOUR_EN_S ** 2 / UA_EN_M ** 3
 def en_booleen(valeur) -> bool:
     #Convertit la valeur « actif » du CSV ou d'un formulaire en booléen.
     #Attention : bool("false") vaut True en Python, d'où cette fonction.
+    #np.bool_ : le type booléen de numpy, que pandas donne quand il lit true/false dans le CSV
+    #https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.bool
     if isinstance(valeur, (bool, np.bool_)):
         return bool(valeur)
     texte = str(valeur).strip().lower()
@@ -57,6 +67,10 @@ class Astre(ABC):
 
     def distance_a(self, point, t: float) -> float:
         #Distance en UA entre le centre de l'objet au temps t et un point (x, y).
+        #np.asarray transforme le point (liste ou tuple) en tableau numpy pour pouvoir soustraire
+        #https://numpy.org/doc/stable/reference/generated/numpy.asarray.html
+        #np.linalg.norm donne la longueur du vecteur : racine(dx² + dy²)
+        #https://numpy.org/doc/stable/reference/generated/numpy.linalg.norm.html
         return float(np.linalg.norm(np.asarray(point, dtype=float) - self.position(t)))
 
     def contient(self, point, t: float) -> bool:
@@ -67,6 +81,7 @@ class Astre(ABC):
         #Accélération gravitationnelle (UA/jour²) que l'objet exerce sur un point (x, y) au temps t :
         #a = G * M * (r_astre - r) / ||r_astre - r||³. Un objet inactif ou sans masse n'attire pas.
         if not self.actif or self.masse == 0:
+            #np.zeros(2) : le vecteur nul [0, 0] : https://numpy.org/doc/stable/reference/generated/numpy.zeros.html
             return np.zeros(2)
         ecart = self.position(t) - np.asarray(point, dtype=float)
         distance = np.linalg.norm(ecart)
@@ -116,6 +131,8 @@ class AstreFixe(Astre):
         #Angle en radians au temps t : theta = 2*pi*t/T + phase (l'angle reste égal à la phase si T = 0).
         #La phase est donnée en degrés, on la convertit en radians pour cos et sin.
         t = self._temps(t)
+        #np.radians convertit des degrés en radians : https://numpy.org/doc/stable/reference/generated/numpy.radians.html
+        #np.pi vaut 3.14159... : https://numpy.org/doc/stable/reference/constants.html
         phase = np.radians(self.phase)
         if self.periode > 0:
             return 2 * np.pi * t / self.periode + phase
@@ -125,6 +142,9 @@ class AstreFixe(Astre):
         #Position r(t) = centre + d * (cos(theta), sin(theta)), le centre étant (0, 0) ou le parent.
         theta = self._angle(t)
         centre = np.zeros(2) if self.parent is None else self.parent.position(t)
+        #np.array crée le vecteur [x, y] ; np.cos et np.sin prennent un angle en radians
+        #https://numpy.org/doc/stable/reference/generated/numpy.array.html
+        #https://numpy.org/doc/stable/reference/generated/numpy.cos.html
         return centre + self.distance * np.array([np.cos(theta), np.sin(theta)])
 
     def vitesse(self, t: float) -> np.ndarray:
@@ -145,6 +165,8 @@ class AstreFixe(Astre):
             raise ValueError("Ligne CSV invalide : la colonne « nom » est manquante") from None
 
         def nombre(cle, defaut=0.0):
+            #ligne.get(cle, defaut) : la valeur de la colonne, ou defaut si la colonne n'existe pas
+            #(marche pour un dictionnaire et pour une ligne pandas) : https://pandas.pydata.org/docs/reference/api/pandas.Series.get.html
             valeur = ligne.get(cle, defaut)
             if valeur is None or str(valeur).strip() == "":
                 return defaut
@@ -152,6 +174,8 @@ class AstreFixe(Astre):
                 valeur = float(valeur)
             except (TypeError, ValueError):
                 raise ValueError(f"Astre « {nom} », colonne « {cle} » : « {valeur} » n'est pas un nombre") from None
+            #np.isnan : vrai si la valeur est NaN, ce que pandas met dans une case vide du CSV
+            #https://numpy.org/doc/stable/reference/generated/numpy.isnan.html
             return defaut if np.isnan(valeur) else valeur
 
         return cls(

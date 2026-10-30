@@ -1,9 +1,15 @@
 from __future__ import annotations
 
+from tkinter import filedialog, messagebox
+
 import customtkinter as ctk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
 from src.sim import Simulation  # placeholder
+from src.graphique import BarreHaut
+from src.chargeur_csv import charger_csv, sauvegarder #Levy Correction import était mal fait 
+from src.physique import calculer_trajectoire
+from src.exceptions import HorsSystemeError, TempsMaximumAtteinte
 
 
 class GraphiqueFrame(ctk.CTkFrame):
@@ -41,12 +47,18 @@ class GraphiqueFrame(ctk.CTkFrame):
                 x, y = astre.position(self.temps)
                 self.ax.scatter(x, y, astre.taille, astre.couleur)
 
-        # Affichage des Projectiles
-        # for projectile in self.simulateur.projectiles:
-        #     if projectile.etat == "actif":
-        #         # Marqueur de position actuelle
-        #         x, y = projectile.position(self.temps)
-        #         self.ax.scatter(x, y, projectile.taille, projectile.couleur)
+        # Affichage des Projectiles (seulement ceux dont la trajectoire a été calculée par « Lancer projectile »)
+        for projectile in self.simulateur.projectiles:
+            if projectile.actif and len(projectile.historique) > 1:
+                # Marqueur de position actuelle
+                x, y = projectile.position(self.temps)
+                self.ax.scatter(x, y, projectile.taille, projectile.couleur)
+
+                # Trajectoire
+                # Levy : historique[:, 0] prend la colonne 0 (tous les x) du tableau numpy, [:, 1] tous les y
+                # https://numpy.org/doc/stable/user/basics.indexing.html
+                # Levy : plot relie les points par une ligne : https://matplotlib.org/stable/api/_as_gen/matplotlib.axes.Axes.plot.html
+                self.ax.plot(projectile.historique[:, 0], projectile.historique[:, 1], color=projectile.couleur, linewidth=0.8)
 
         self.canvas.draw_idle()
 
@@ -161,13 +173,71 @@ class App(ctk.CTk):
         self.ligne_du_temps = LigneDuTemps(master=self, simulateur=self.simulateur)  # Idem
         self.ligne_du_temps.grid(row=1, column=0, padx=10)
 
+        # Boutons ouvrir CSV, sauvegarder et lancer projectile
+        self.barre_outils = BarreHaut(self, self.ouvrir_csv, self.sauvegarder_csv, self.lancer_projectile)
+        self.barre_outils.grid(row=2, column=0, pady=4)
+
         self.graphique.redessiner()
 
     @property
     def temps(self):
         return self.ligne_du_temps.temps
 
+    def ouvrir_csv(self):
+        """Demande un fichier CSV et charge ses astres fixes et projectiles dans la simulation (Levy)."""
+        # Levy : askopenfilename ouvre la fenêtre « Ouvrir » de Windows et renvoie le chemin choisi ("" si annulé)
+        # https://docs.python.org/3/library/dialog.html#tkinter.filedialog.askopenfilename
+        chemin = filedialog.askopenfilename(title="Ouvrir un fichier CSV", filetypes=[("Fichiers CSV", "*.csv")])
+        if not chemin:
+            return
+        try:
+            self.simulateur.astres, self.simulateur.projectiles = charger_csv(chemin)
+        except (OSError, KeyError, ValueError) as erreur:
+            # Levy : showerror affiche une petite fenêtre d'erreur : https://docs.python.org/3/library/tkinter.messagebox.html
+            messagebox.showerror("Ouvrir CSV", f"Impossible de lire le fichier :\n{erreur}")
+            return
+        # Levy : configure(to=...) change la valeur maximale du curseur
+        # https://customtkinter.tomschimansky.com/documentation/widgets/slider
+        self.ligne_du_temps.slider.configure(to=self.simulateur.temps_max())
+        self.ligne_du_temps.temps = 0
+
+    def sauvegarder_csv(self):
+        """Demande où enregistrer et écrit les astres et projectiles dans un CSV (Levy)."""
+        # Levy : asksaveasfilename ouvre la fenêtre « Enregistrer sous » ; defaultextension ajoute .csv si oublié
+        # https://docs.python.org/3/library/dialog.html#tkinter.filedialog.asksaveasfilename
+        chemin = filedialog.asksaveasfilename(title="Sauvegarder", defaultextension=".csv",
+                                              filetypes=[("Fichiers CSV", "*.csv")])
+        if not chemin:
+            return
+        try:
+            sauvegarder(self.simulateur, chemin)
+        except ValueError as erreur:
+            messagebox.showerror("Sauvegarder", f"Impossible d'écrire le fichier :\n{erreur}")
+
+    def lancer_projectile(self):
+        """Calcule la trajectoire de chaque projectile actif, puis redessine le graphique (Levy)."""
+        # Levy : showinfo affiche une fenêtre d'information : https://docs.python.org/3/library/tkinter.messagebox.html
+        if not self.simulateur.astres or not self.simulateur.projectiles:
+            messagebox.showinfo("Lancer projectile", "Ouvre d'abord un CSV qui contient des astres et au moins un projectile.")
+            return
+        for projectile in self.simulateur.projectiles:
+            if not projectile.actif:
+                continue
+            projectile.reinitialiser()
+            try:
+                projectile.cible = calculer_trajectoire(projectile, self.simulateur.astres, self.simulateur.dt, projectile.duree_vie)
+                projectile.etat = "collision"
+            except HorsSystemeError:
+                projectile.etat = "hors systeme"
+            except TempsMaximumAtteinte:
+                projectile.etat = "expire"
+        self.graphique.redessiner()
+
 
 if __name__ == "__main__":
-    app = App()
-    app.mainloop()
+    # Levy : lance la nouvelle interface de graphique.py (l'ancienne fenêtre App reste dans ce fichier)
+    from src.graphique import FenetreSimulateur
+
+    fenetre = FenetreSimulateur()
+    fenetre.afficher(*charger_csv("donnees/systeme_solaire.csv"), "systeme_solaire.csv")
+    fenetre.mainloop()

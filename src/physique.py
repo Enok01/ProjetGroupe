@@ -79,7 +79,10 @@ def acceleration(pos: list[float], astres_positions: list[tuple[AstreFixe, tuple
 
     Returns:
         np.ndarray: _accélération x et y du projectile (en UA/j²)_
+
+    Levy : fonction écrite pour regrouper les deux boucles d'accélération de prochaine_pos_vit.
     """
+    #np.array crée le vecteur accélération [ax, ay] de départ : https://numpy.org/doc/stable/reference/generated/numpy.array.html
     a = np.array([0.0, 0.0])
     for astre, pos_astre in astres_positions:
         # Un astre inactif n'attire pas
@@ -93,6 +96,8 @@ def acceleration(pos: list[float], astres_positions: list[tuple[AstreFixe, tuple
             continue
 
         # Trouve les vecteurs unitaires du vecteur entre le projectile et l'astre fixe
+        #np.sqrt : racine carrée, ici la distance à partir de la distance au carré
+        #https://numpy.org/doc/stable/reference/generated/numpy.sqrt.html
         vect_unitaire = vecteur_astre_projectile / np.sqrt(distance2)
 
         # Calcule l’accélération avec l'équation Fg = Gm1m2/d**2 et a = F/m1, qui combiner ensemble : G * m2/d**2
