@@ -2,9 +2,13 @@ import pandas as pd
 import random
 from matplotlib.colors import is_color_like, to_hex
 
-COLONNES_communes = ["nom", "masse", "couleur", "taille", "rayon", "actif"] 
+from src.astre import AstreFixe, en_booleen  # Levy : pour créer les objets dans charger_csv
+from src.projectile import Projectile
+
+COLONNES_communes = ["nom", "masse", "couleur", "taille", "rayon", "actif"]
 COLONNES_fixes = ["distance", "periode", "phase", "parent"]
-COLONNES_projectiles = ["x0", "y0", "vx0", "vy0", "temps_apparition", "duree_vie"]
+COLONNES_projectiles = ["x0", "y0", "vx0", "vy0", "temps d'apparition", "durree de vie"]  # Levy : mêmes noms que dans donnees/systeme_solaire.csv (sinon notre propre fichier était refusé)
+APPARITION, DUREE = COLONNES_projectiles[4], COLONNES_projectiles[5]  # Levy : noms écrits une seule fois, utilisés plus bas
 COLONNES_tous = ["type"]+COLONNES_communes + COLONNES_fixes + COLONNES_projectiles
 
 def lire_csv(fichier):
@@ -80,21 +84,40 @@ def corriger_couleurs(df):
 
 def charger_csv(fichier):
     """
-    Charge un fichier CSV et retourne un DataFrame avec les colonnes attendues.
+    Charge un fichier CSV, le vérifie et crée les objets de la simulation.
     Args:
         fichier (str): Chemin vers le fichier CSV.
     Returns:
-        pd.DataFrame: DataFrame contenant les données du CSV.
+        tuple: (liste des AstreFixe, liste des Projectile).
 
     """
     df = lire_csv(fichier)
     erreurs = valider_csv(df)
-    
+
     if erreurs:
         raise ValueError("\n".join(erreurs))
 
-    
-    return corriger_couleurs(df), fichier #Ça te va comme ça, liam, pour retourner le chemin? 
+    df = corriger_couleurs(df)  # Levy : on garde la correction des couleurs de Demba avant de créer les objets
+    # Levy : on renvoie des objets au lieu du DataFrame, sinon la simulation ne peut rien en faire
+    astres, projectiles, parents = [], [], []
+    # Levy : iterrows parcourt le tableau ligne par ligne et donne (index, ligne)
+    # https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.iterrows.html
+    for _, row in df.iterrows():
+        if str(row["type"]).strip().lower() == "astrefixe":
+            astres.append(AstreFixe.depuis_ligne(row))
+            parents.append(row["parent"])
+        else:
+            projectiles.append(Projectile(str(row["nom"]).strip(), row["masse"], str(row["couleur"]).strip(), row["taille"], row["rayon"],
+                                          (row["x0"], row["y0"]), (row["vx0"], row["vy0"]),
+                                          float(row[APPARITION]), float(row[DUREE]), en_booleen(row["actif"])))
+
+    # Levy : relie chaque lune à son parent (valider_csv a déjà vérifié que le parent existe)
+    par_nom = {astre.nom: astre for astre in astres}
+    for astre, parent in zip(astres, parents):
+        # Levy : pd.isna est vrai pour une case vide (NaN) : https://pandas.pydata.org/docs/reference/api/pandas.isna.html
+        if not pd.isna(parent):
+            astre.parent = par_nom[str(parent).strip()]
+    return astres, projectiles
 
 def valider_csv(df):
     """
@@ -137,7 +160,7 @@ def valider_csv(df):
         if est_fixe:
             colonnes_nombres += ["distance", "periode", "phase"]
         else:
-            colonnes_nombres += ["temps_apparition", "duree_vie", "x0", "y0", "vx0", "vy0"]
+            colonnes_nombres += [APPARITION, DUREE, "x0", "y0", "vx0", "vy0"]  # Levy : noms des colonnes du CSV
         
         
         valeurs = {}  # les valeurs converties en nombres
@@ -171,11 +194,11 @@ def valider_csv(df):
                 erreurs.append(f" la valeur de 'periode' pour l'objet {row['nom']} n'est pas valide : {row['periode']}. La valeur doit être positive.")
 
         else:
-            if valeurs["temps_apparition"] < 0:
-                erreurs.append(f" la valeur de 'temps_apparition' pour l'objet {row['nom']} n'est pas valide : {row['temps_apparition']}. La valeur doit être positive.")
+            if valeurs[APPARITION] < 0:  # Levy : noms des colonnes du CSV
+                erreurs.append(f" la valeur de '{APPARITION}' pour l'objet {row['nom']} n'est pas valide : {row[APPARITION]}. La valeur doit être positive.")
 
-            if valeurs["duree_vie"] <= 0:
-                erreurs.append(f" la valeur de 'duree_vie' pour l'objet {row['nom']} n'est pas valide : {row['duree_vie']}. La valeur doit être positive.") 
+            if valeurs[DUREE] <= 0:  # Levy : noms des colonnes du CSV
+                erreurs.append(f" la valeur de '{DUREE}' pour l'objet {row['nom']} n'est pas valide : {row[DUREE]}. La valeur doit être positive.")
 
 
 
@@ -231,8 +254,8 @@ def sauvegarder(sim, fichier):
             "y0": y,
             "vx0": vx,
             "vy0": vy,
-            "temps_apparition": projectile.temps_apparition,
-            "duree_vie": projectile.duree_vie,
+            APPARITION: projectile.temps_apparition,  # Levy : noms des colonnes du CSV
+            DUREE: projectile.duree_vie,
         })
 
     df = pd.DataFrame(lignes, columns=COLONNES_tous)
