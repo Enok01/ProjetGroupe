@@ -74,7 +74,8 @@ class LigneDuTemps(ctk.CTkFrame):
         self.simulateur: Simulation = simulateur
         self.__taille_boutons = 10  # taille des boutons carrés
         self.__temps = 0
-
+        self.__defil = False # dit sil y a un defilement dans le temps, ou non.
+        
         # Création des boutons et de la ligne
         self.stop = ctk.CTkButton(
             master=self,
@@ -106,48 +107,74 @@ class LigneDuTemps(ctk.CTkFrame):
             from_=0, to=simulateur.temps_max(),
             command=self.__commande_curseur
         )
-
+        
         # Arranger les widgets
         self.stop.grid(row=0, column=0)
         self.back.grid(row=0, column=1)
         self.play_pause.grid(row=0, column=2)
         self.fforward.grid(row=0, column=3)
         self.slider.grid(row=0, column=4)
+        
+        self.slider.set(0) # inisialisation du slider (pour qu'il soit au t = 0 au moment du lancement de l'application )
 
     @property
     def temps(self):
         return self.__temps
-
+    
+    @property
+    def defil(self):
+        return self.__defil
+    
     @temps.setter
     def temps(self, valeur):
         self.__temps = valeur
         self.master.graphique.redessiner()
         self.slider.set(valeur)
+        
+    @defil.setter
+    def defil(self, value):
+        self.__defil = value
 
     def __commande_arret(self):
         """Arrête le défilement du temps et revient à t=0."""
-        pass
+        self.temps = 0
+        self.__commande_pause()
 
     def __commande_lecture(self):
         """Fait défiler le temps."""
-        self.play_pause.configure(text="\u23f8", command=self.__commande_pause)
+        if not self.defil and self.temps < self.simulateur.temps_max():
+            self.defil = True  
+            self.mise_a_jour_lecture()
+            self.play_pause.configure(text="\u23f8", command=self.__commande_pause)
+        else:
+            self.__commande_pause()
 
     def __commande_pause(self):
         """Met sur pause le défilement du temps."""
+        self.defil = False
         self.play_pause.configure(text="\u23f5", command=self.__commande_lecture)
 
     def __commande_suivant(self):
         """Avance jusqu'au prochain moment-clé."""
-        pass
+        self.temps = self.simulateur.moment_cle_prochain(self.temps)
 
     def __commande_precedent(self):
         """Retourne au moment-clé précédent."""
-        pass
+        self.temps = self.simulateur.moment_cle_prochain(self.temps, direction = "recule")
 
-    def __commande_curseur(self, valeur):
+    def __commande_curseur(self, value):
         """Met à jour le temps lorsque le slider est utilisé"""
-        self.temps = valeur
-
+        if self.defil:
+            self.__commande_pause()
+        self.temps = round(value)
+        
+    def mise_a_jour_lecture(self):
+        """Met à jour le temps à chaque 0.1 seconde"""
+        if self.defil and self.temps < self.simulateur.temps_max():
+            self.temps += 1
+            self.after(100,self.mise_a_jour_lecture)    
+        else: 
+            self.__commande_pause()
 
 class App(ctk.CTk):
     """
@@ -178,6 +205,7 @@ class App(ctk.CTk):
         self.barre_outils.grid(row=2, column=0, pady=4)
 
         self.graphique.redessiner()
+        
 
     @property
     def temps(self):
