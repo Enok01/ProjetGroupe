@@ -70,8 +70,8 @@ def valider_csv(df):
             erreurs.append(f" la valeur de 'nom' pour l'objet à l'index {id} est vide. Le nom doit être une chaîne de caractères non vide.")  
             continue  # On peut arrêter la vérification si le nom est vide, car c'est une erreur critique!
 
-        if str(row["type"]).lower() not in ("true", "false"): #On ne sait pas si le type va être écrit comme un booléen ou un texte en minuscule, donc on transforme en minuscule pour être sûr 
-            erreurs.append(f" la valeur de 'type' pour l'objet {row['nom']} n'est pas valide : {row['type']}. La valeur doit être un booléen.")
+        if str(row["type"]) not in ("AstreFixe", "Projectile"):
+            erreurs.append(f" la valeur de 'type' pour l'objet {row['nom']} n'est pas valide : {row['type']}. La valeur doit être soit 'AstreFixe', soit 'Projectile'.")
             continue # Erreur critique! sans type on ne sais pas Quelle colonne vérifier. 
 
         if str(row["actif"]).lower() not in ("true", "false"): # Même raison que plus tôt 
