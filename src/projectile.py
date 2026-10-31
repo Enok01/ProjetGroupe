@@ -101,3 +101,36 @@ class Projectile(Astre):
                 if ligne < len(self.historique):
                     return self.historique[ligne]  # Retourne ligne conplete
                 return self.historique[-1]  # Retourne le dernier état connu si le pas dépasse les pas calculés
+
+    @classmethod
+    def depuis_ligne(cls, ligne):
+        """
+        Crée un Projectile à partir d'une ligne du CSV (dictionnaire ou ligne pandas).
+        """
+        try:
+            nom = str(ligne["nom"]).strip()
+        except (KeyError, TypeError):
+            raise ValueError("Ligne CSV invalide : la colonne « nom » est manquante") from None
+
+        def nombre(cle, defaut=0.0):
+            valeur = ligne.get(cle, defaut)
+            if valeur is None or str(valeur).strip() == "":
+                return defaut
+            try:
+                valeur = float(valeur)
+            except (TypeError, ValueError):
+                raise ValueError(f"Projectile « {nom} », colonne « {cle} » : « {valeur} » n'est pas un nombre")
+            return defaut if np.isnan(valeur) else valeur
+
+        return cls(
+            nom=nom,
+            masse=nombre("masse"),
+            couleur=str(ligne.get("couleur") or "#FFFFFF").strip(),
+            taille=nombre("taille", 5.0),
+            rayon=nombre("rayon"),
+            actif=en_booleen(ligne.get("actif", True)),
+            pos0=(nombre("x0"), nombre("y0")),
+            vit0=(nombre("vx0"), nombre("vy0")),
+            temps_apparition=nombre("temps_apparition"),
+            duree_vie=nombre("duree_vie")
+        )
