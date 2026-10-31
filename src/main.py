@@ -4,7 +4,7 @@ import customtkinter as ctk
 import numpy as np
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
-from src.sim import Simulation
+from src.simulation import Simulation
 
 
 class GraphiqueFrame(ctk.CTkFrame):
