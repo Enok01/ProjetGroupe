@@ -7,8 +7,7 @@ from src.projectile import Projectile
 
 COLONNES_communes = ["nom", "masse", "couleur", "taille", "rayon", "actif"]
 COLONNES_fixes = ["distance", "periode", "phase", "parent"]
-COLONNES_projectiles = ["x0", "y0", "vx0", "vy0", "temps d'apparition", "durree de vie"]  # Levy : mêmes noms que dans donnees/systeme_solaire.csv (sinon notre propre fichier était refusé)
-APPARITION, DUREE = COLONNES_projectiles[4], COLONNES_projectiles[5]  # Levy : noms écrits une seule fois, utilisés plus bas
+COLONNES_projectiles = ["x0", "y0", "vx0", "vy0", "temps_apparition", "duree_vie"]  # Levy : mêmes noms que dans donnees/systeme_solaire.csv (sinon notre propre fichier était refusé)
 COLONNES_tous = ["type"]+COLONNES_communes + COLONNES_fixes + COLONNES_projectiles
 
 def lire_csv(fichier):
@@ -23,9 +22,9 @@ def lire_csv(fichier):
         df = pd.read_csv(fichier)
        
     except FileNotFoundError:
-        raise ValueError(f"le fichier {fichier} n'a pas été trouvé")
+        raise FileNotFoundError(f"le fichier {fichier} n'a pas été trouvé")
     except PermissionError:
-        raise ValueError(f"le fichier {fichier} n'a pas pu être ouvert. Le fichier est peut-être ouvert dans un autre programme, exemple : Excel).")
+        raise PermissionError(f"le fichier {fichier} n'a pas pu être ouvert. Le fichier est peut-être ouvert dans un autre programme, exemple : Excel).")
      
     df = df.dropna(how='all')   # Enlever les lignes complètement vides
     if df.empty:
@@ -109,7 +108,7 @@ def charger_csv(fichier):
         else:
             projectiles.append(Projectile(str(row["nom"]).strip(), row["masse"], str(row["couleur"]).strip(), row["taille"], row["rayon"],
                                           (row["x0"], row["y0"]), (row["vx0"], row["vy0"]),
-                                          float(row[APPARITION]), float(row[DUREE]), en_booleen(row["actif"])))
+                                          float(row["temps_apparition"]), float(row["duree_vie"]), en_booleen(row["actif"])))
 
     # Levy : relie chaque lune à son parent (valider_csv a déjà vérifié que le parent existe)
     par_nom = {astre.nom: astre for astre in astres}
@@ -160,7 +159,7 @@ def valider_csv(df):
         if est_fixe:
             colonnes_nombres += ["distance", "periode", "phase"]
         else:
-            colonnes_nombres += [APPARITION, DUREE, "x0", "y0", "vx0", "vy0"]  # Levy : noms des colonnes du CSV
+            colonnes_nombres += ["temps_apparition", "duree_vie", "x0", "y0", "vx0", "vy0"]
         
         
         valeurs = {}  # les valeurs converties en nombres
@@ -194,11 +193,11 @@ def valider_csv(df):
                 erreurs.append(f" la valeur de 'periode' pour l'objet {row['nom']} n'est pas valide : {row['periode']}. La valeur doit être positive.")
 
         else:
-            if valeurs[APPARITION] < 0:  # Levy : noms des colonnes du CSV
-                erreurs.append(f" la valeur de '{APPARITION}' pour l'objet {row['nom']} n'est pas valide : {row[APPARITION]}. La valeur doit être positive.")
+            if valeurs["temps_apparition"] < 0:
+                erreurs.append(f" la valeur de 'temps_apparition' pour l'objet {row['nom']} n'est pas valide : {row["temps_apparition"]}. La valeur doit être positive.")
 
-            if valeurs[DUREE] <= 0:  # Levy : noms des colonnes du CSV
-                erreurs.append(f" la valeur de '{DUREE}' pour l'objet {row['nom']} n'est pas valide : {row[DUREE]}. La valeur doit être positive.")
+            if valeurs["duree_vie"] <= 0:
+                erreurs.append(f" la valeur de 'duree_vie' pour l'objet {row['nom']} n'est pas valide : {row["duree_vie"]}. La valeur doit être positive.")
 
 
 
@@ -254,8 +253,8 @@ def sauvegarder(sim, fichier):
             "y0": y,
             "vx0": vx,
             "vy0": vy,
-            APPARITION: projectile.temps_apparition,  # Levy : noms des colonnes du CSV
-            DUREE: projectile.duree_vie,
+            "temps_apparition": projectile.temps_apparition,
+            "duree_vie": projectile.duree_vie,
         })
 
     df = pd.DataFrame(lignes, columns=COLONNES_tous)

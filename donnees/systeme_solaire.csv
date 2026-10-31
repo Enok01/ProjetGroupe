@@ -1,4 +1,4 @@
-nom,type,masse,couleur,taille,rayon,actif,distance,periode,phase,parent,x0,y0,vx0,vy0,temps d'apparition,durree de vie
+nom,type,masse,couleur,taille,rayon,actif,distance,periode,phase,parent,x0,y0,vx0,vy0,temps_apparition,duree_vie
 Soleil,AstreFixe,332946.0487,orange,109 ,0.00464913,true,0.0,0.0,0.0,,,,,,,
 Mercure,AstreFixe,0.0553,gray,0.3829,0.00001630638,true,0.39,87.9691,163.0,,,,,,,
 Vénus,AstreFixe,0.815,khaki,0.9499,0.00004045378,true,0.72,224.7,82.7,,,,,,,
@@ -8,4 +8,4 @@ Jupiter,AstreFixe,317.8,papayawhip,10.969,0.0004778678,true,5.2 ,4331,135.9,,,,,
 Saturne,AstreFixe,95.2,antiquewhite,9.1402,0.0003892569,true,9.5,10747,13.1,,,,,,,
 Uranus,AstreFixe,14.5,skyblue,3.981,0.0001695345,true,19.2,30589,63.7,,,,,,,
 Neptune,AstreFixe,17.1,lightsteelblue,3.864,0.0001645879,true,30.1 ,60190,3.4,,,,,,,
-Hello World,Projectile,0.001,magenta,0.5,0.000001,false,,,,,16.54,42.0,0.6,0.7,1,30000
+Exemple,Projectile,0.001,magenta,0.5,0.000001,false,,,,,16.54,42.0,0.6,0.7,1,30000
