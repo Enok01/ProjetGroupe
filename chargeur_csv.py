@@ -77,7 +77,7 @@ def valider_csv(df):
         if str(row["actif"]).lower() not in ("true", "false"): # Même raison que plus tôt 
              erreurs.append(f" la valeur de 'actif' pour l'objet {row['nom']} n'est pas valide : {row['actif']}. La valeur doit être un booléen.")
 
-        est_fixe:bool = str(row["type"]).lower() == "true" 
+        est_fixe:bool = str(row["type"]) == "AstreFixe"
 
         # on va départager les colonne avec les nb ce qu'on a besoin de vérifier en fonction de si c'est fixe ou pas. 
         
