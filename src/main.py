@@ -4,7 +4,7 @@ import customtkinter as ctk
 import numpy as np
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
-from src.sim import Simulation  # placeholder
+from src.sim import Simulation
 
 
 class GraphiqueFrame(ctk.CTkFrame):
@@ -45,6 +45,9 @@ class GraphiqueFrame(ctk.CTkFrame):
                 self.ax.scatter(x, y, astre.taille, astre.couleur)
 
                 # Trajectoire
+                if astre.periode == 0.0:
+                    # L'astre ne se déplace pas, il n'a donc pas de trajectoire.
+                    continue
                 trajectoire = np.array([astre.position(t) for t in range(int(astre.periode))])
                 self.ax.plot(trajectoire[:,0], trajectoire[:,1], color=astre.couleur, marker="")
 
@@ -218,13 +221,6 @@ if __name__ == "__main__":
     from src.projectile import Projectile
 
     app = App()
-    app.simulateur.astres = [
-        AstreFixe("S", 1000, "yellow", 25, 0.05, True),
-        AstreFixe("T", 1, "blue", 2, 0.001, True, 1, 100, 13),
-        AstreFixe("J", 50, "orange", 10, 0.01, True, 4, 500, 342),
-    ]
-    app.simulateur.projectiles = [
-        Projectile("H", 0.001, "green", 1, 0.0001, (1, 1), (0.0, 0.0), 0, 1000, True)
-    ]
+    app.simulateur.importer("donnees/systeme_solaire.csv")
     app.graphique.redessiner()
     app.mainloop()

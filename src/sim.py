@@ -1,3 +1,5 @@
+from typing import NamedTuple
+from chargeur_csv import charger_csv
 from src.astre import AstreFixe
 from src.projectile import Projectile
 from src.physique import calculer_trajectoire
@@ -38,7 +40,8 @@ class Simulation:
         if t < 0 or t > self.temps_max():
             raise ValueError("Le temps spécifié est hors des limites de la simulation.")
 
-        if self.moments_cle[-1] <= t <= self.temps_max():
+        print(self.moments_cle)
+        if self.moments_cle[len(self.moments_cle) - 1] <= t <= self.temps_max():
             return self.temps_max()
         elif direction == "avancer":
             moments_pertinents = [mc for mc in self.moments_cle if mc > t]  # Trouve tous les mc qui sont après t
@@ -57,7 +60,9 @@ class Simulation:
 
     def ajouter_moment_cle(self, t: int):
         if t >= self.temps_max():
-            raise ValueError("Le temps spécifié est hors des limites de la simulation.")
+            raise ValueError("Le temps spécifié est hors des limites de la simulation.\n"
+                             + "temps_max = " + str(self.temps_max()) + "\n"
+                             + "t = " + str(t))
 
         self.moments_cle.append(t)
         self.moments_cle.sort()
@@ -76,6 +81,25 @@ class Simulation:
             finally:
                 self.ajouter_moment_cle(len(projectile.historique) - 1)
 
-    def importer(self, path: str):
-        # TODO: Implémenter la méthode à Demba
-        pass
+    def importer(self, fichier: str):
+        df = charger_csv(fichier)
+        for l in df.iterrows():
+            ligne = l[1]  # .iterrows retourne un tuple bizarre, donc on en prend juste la partie qui nous intéresse
+            if ligne["type"] == "AstreFixe":
+                try:
+                    self.astres.append(AstreFixe.depuis_ligne(ligne))
+                except ValueError:
+                    print("Erreur lors du chargement d'un astre !\n",
+                          "Informations sur l'astre :",
+                          ligne)
+                    continue
+            elif ligne["type"] == "Projectile":
+                try:
+                    self.astres.append(AstreFixe.depuis_ligne(ligne))
+                except ValueError:
+                    print("Erreur lors du chargement d'un projectile !\n",
+                          "Informations sur le projectile:",
+                          ligne)
+                    continue
+            else:
+                continue
