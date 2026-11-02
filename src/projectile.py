@@ -98,6 +98,6 @@ class Projectile(Astre):
                 
                 ligne = int(pas - self.temps_apparition)  # Nombre de pas depuis l'apparition
 
-                if ligne < len(self.historique) / 4:
+                if ligne < len(self.historique):
                     return self.historique[ligne]  # Retourne ligne conplete
                 return self.historique[-1]  # Retourne le dernier état connu si le pas dépasse les pas calculés
