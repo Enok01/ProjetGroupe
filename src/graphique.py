@@ -8,6 +8,9 @@ Documentation officielle :
     numpy : https://numpy.org/doc/stable/reference/
     placement grid : https://tkdocs.com/tutorial/grid.html
 """
+import tkinter.filedialog as tk_fd
+import tkinter.messagebox as tk_msgbx
+
 import customtkinter as ctk
 import numpy as np
 import matplotlib.pyplot as plt
@@ -334,7 +337,7 @@ class FenetreSimulateur(ctk.CTk):
         self.protocol("WM_DELETE_WINDOW", self.quit)  # NE PAS ENLEVER : ferme proprement la fenêtre
 
         self.simulateur = Simulation()
-        self.barre_haut = BarreHaut(self)
+        self.barre_haut = BarreHaut(self, ouvrir=self.ouvrir_csv)
         self.gestionnaire = GestionnaireObjets(self)
         self.vue = VueGraphique(self)
         self.details = DetailsProjectile(self)
@@ -365,6 +368,16 @@ class FenetreSimulateur(ctk.CTk):
         infos = {"État": projectiles[0].etat, "Masse (MT)": f"{projectiles[0].masse:g}"} if projectiles else None
         self.details.afficher([projectile.nom for projectile in projectiles], infos)
         self.barre_controle.afficher_temps(t)
+
+    def ouvrir_csv(self):
+        fichier = tk_fd.askopenfile(filetypes=[("Fichiers CSV", "*.csv")], parent=self)
+        if not fichier: return
+        try:
+            self.simulateur.importer(fichier)
+        except (FileNotFoundError, PermissionError, ValueError, OSError) as erreur:
+            tk_msgbx.showerror("Le chargement a échoué !", str(erreur), parent=self)
+            return
+        self.afficher(*fenetre.simulateur.astres_et_projectiles, fichier.name)
 
 
 # Aperçu de l'interface : « python -m src.graphique » depuis la racine du projet
