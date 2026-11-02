@@ -8,14 +8,15 @@ Documentation officielle :
     numpy : https://numpy.org/doc/stable/reference/
     placement grid : https://tkdocs.com/tutorial/grid.html
 """
+
 import tkinter.filedialog as tk_fd
 import tkinter.messagebox as tk_msgbx
-
 import customtkinter as ctk
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 
+from src.astre import Astre
 from src.simulation import Simulation
 
 FOND = "#0f1424"   # bleu nuit derrière les astres
@@ -117,7 +118,7 @@ class GestionnaireObjets(ctk.CTkScrollableFrame):
             est_astre = objet in astres
 
             # CTkCheckBox (select = cocher) : https://customtkinter.tomschimansky.com/documentation/widgets/checkbox
-            case = ctk.CTkCheckBox(self, text="", width=30)
+            case = ctk.CTkCheckBox(self, text="", width=30, command=self.CommandeCase(objet))
             if objet.actif:
                 case.select()
             case.grid(row=ligne, column=0)
@@ -131,6 +132,22 @@ class GestionnaireObjets(ctk.CTkScrollableFrame):
             # Pastille de couleur : une étiquette vide dont fg_color est la couleur de fond
             ctk.CTkLabel(self, text="", width=30, height=16, fg_color=objet.couleur, corner_radius=4
                          ).grid(row=ligne, column=5)
+
+    class CommandeCase:
+        """
+        Une classe-usine qui génère une fonction qui alterne l'état d'activité d'un Astre,
+        mais demande que le graphique soit recalculé aussi. Utilisable comme commande pour un widget CTk.
+
+        *"Toute opportunité d'utiliser une classe-usine est une bonne opportunité." - Moi, 2026*
+        """
+        def __init__(self, objet: Astre):
+            self.objet: Astre = objet
+
+        def __call__(self):
+            if self.objet.actif:
+                self.objet.actif = False
+            else:
+                self.objet.actif = True
 
 
 class VueGraphique(ctk.CTkFrame):
@@ -240,6 +257,7 @@ class BarreControle(ctk.CTkFrame):
 
     def __init__(self, master):
         super().__init__(master)
+        self.master: FenetreSimulateur
 
         # CTkEntry (case où l'on écrit) : https://customtkinter.tomschimansky.com/documentation/widgets/entry
         self.dt = ctk.CTkEntry(self, width=60)
@@ -272,7 +290,7 @@ class BarreControle(ctk.CTkFrame):
 
     @t.setter
     def t(self, value):
-        self.__t = max(0, min(value, self.master.simulateur.temps_max()))  # Garde la valeur de t entre 0 et temps_max
+        self.__t = max(0, min(value, int(self.master.simulateur.temps_max())))  # Garder t entre 0 et temps_max
         self.afficher_temps(self.__t)
         self.master.vue.dessiner(*self.master.simulateur.astres_et_projectiles, self.t)
 
@@ -280,6 +298,7 @@ class BarreControle(ctk.CTkFrame):
     def __commande_reinitialiser(self):
         """Réinitialise le temps et force le graphique à se recalculer."""
         self.master.simulateur.recalculer()
+        self.master.afficher(avec_cache=True)
         self.__commande_arreter()
 
     def __commande_arreter(self):
@@ -353,25 +372,50 @@ class FenetreSimulateur(ctk.CTk):
         self.grid_rowconfigure(1, weight=1)
         self.grid_columnconfigure(1, weight=1)
 
-    def afficher(self, astres=(), projectiles=(), nom_fichier: str = "Aucun fichier", t: float = 0.0):
+        self.cache = {
+            "astres": [],
+            "projectiles": [],
+            "nom_fichier": "",
+            "t": 0.0
+        }
+
+    def afficher(self, astres=(), projectiles=(), nom_fichier: str = "Aucun fichier", t: float = 0.0,
+                 avec_cache: bool = False):
         """
         Remplit tous les panneaux avec les objets donnés.
 
+        Régénère également la cache avec les paramètres fournis.
+
+        :param avec_cache: Si True, rappelle la fonction en utilisant les paramètres en cache. À éviter si possible.
         :param astres: Les astres fixes à afficher
         :param projectiles: Les projectiles à afficher
         :param nom_fichier: Nom du fichier
         :param t: Le temps courant
         """
-        self.barre_haut.afficher_fichier(nom_fichier, len(astres), len(projectiles))
-        self.gestionnaire.afficher(astres, projectiles)
-        self.vue.dessiner(astres, projectiles, t)
-        infos = {"État": projectiles[0].etat, "Masse (MT)": f"{projectiles[0].masse:g}"} if projectiles else None
-        self.details.afficher([projectile.nom for projectile in projectiles], infos)
-        self.barre_controle.afficher_temps(t)
+        if avec_cache:
+            self.afficher(
+                astres=self.cache["astres"],
+                projectiles=self.cache["projectiles"],
+                nom_fichier=self.cache["nom_fichier"],
+                t=self.cache["t"])
+        else:
+            self.barre_haut.afficher_fichier(nom_fichier, len(astres), len(projectiles))
+            self.gestionnaire.afficher(astres, projectiles)
+            self.vue.dessiner(astres, projectiles, t)
+            infos = {"État": projectiles[0].etat, "Masse (MT)": f"{projectiles[0].masse:g}"} if projectiles else None
+            self.details.afficher([projectile.nom for projectile in projectiles], infos)
+            self.barre_controle.afficher_temps(t)
+
+            # Cache
+            self.cache["astres"] = astres
+            self.cache["projectiles"] = projectiles
+            self.cache["nom_fichier"] = nom_fichier
+            self.cache["t"] = t
 
     def ouvrir_csv(self):
         fichier = tk_fd.askopenfile(filetypes=[("Fichiers CSV", "*.csv")], parent=self)
-        if not fichier: return
+        if not fichier:
+            return
         try:
             self.simulateur.importer(fichier)
         except (FileNotFoundError, PermissionError, ValueError, OSError) as erreur:
@@ -382,9 +426,7 @@ class FenetreSimulateur(ctk.CTk):
 
 # Aperçu de l'interface : « python -m src.graphique » depuis la racine du projet
 if __name__ == "__main__":
-    from src.chargeur_csv import charger_csv
-
     fenetre = FenetreSimulateur()
     fenetre.simulateur.importer("../donnees/systeme_solaire.csv")
-    fenetre.afficher(*fenetre.simulateur.astres_et_projectiles, "systeme_solaire.csv")
+    fenetre.afficher(*fenetre.simulateur.astres_et_projectiles, "(Par Défaut) Système Solaire")
     fenetre.mainloop()
