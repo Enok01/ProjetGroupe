@@ -5,7 +5,7 @@ from tkinter import filedialog, messagebox
 import customtkinter as ctk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import matplotlib.pyplot as plt
-from src.sim import Simulation  # placeholder
+from src.simulation import Simulation  # placeholder
 from src.graphique import BarreHaut
 from src.chargeur_csv import charger_csv, sauvegarder #Levy Correction import était mal fait 
 from src.physique import calculer_trajectoire

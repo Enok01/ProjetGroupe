@@ -13,6 +13,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 
+from src.simulation import Simulation
+
 FOND = "#0f1424"   # bleu nuit derrière les astres
 
 
@@ -108,7 +110,7 @@ class GestionnaireObjets(ctk.CTkScrollableFrame):
         for colonne, titre in enumerate(self.COLONNES):
             texte(self, titre, gras=True).grid(row=0, column=colonne, padx=6, sticky="w")
 
-        for ligne, objet in enumerate(list(astres) + list(projectiles), start=1):
+        for ligne, objet in enumerate(astres + projectiles, start=1):
             est_astre = objet in astres
 
             # CTkCheckBox (select = cocher) : https://customtkinter.tomschimansky.com/documentation/widgets/checkbox
@@ -240,13 +242,19 @@ class BarreControle(ctk.CTkFrame):
         self.dt = ctk.CTkEntry(self, width=60)
         self.dt.insert(0, "0.5")  # texte de départ
 
+        # Défilement du temps
+        self.defil = False
+
+        # Variable de temps
+        self.__t: int = 0
+
         # Boutons rangés par nom pour brancher la logique plus tard, ex. barre.boutons["jouer"].configure(command=...)
         self.boutons = {
-            "reinitialiser": bouton(self, "Réinitialiser"),
-            "reculer": bouton(self, "◀ Reculer"),
-            "jouer": bouton(self, "▶ Jouer", couleur="#2e8b57"),
-            "arreter": bouton(self, "■ Arrêter", couleur="#c0392b"),
-            "avancer": bouton(self, "Avancer ▶")
+            "reinitialiser": bouton(self, "Réinitialiser", commande=self.__commande_reinitialiser),
+            "reculer": bouton(self, "◀ Reculer", commande=self.__commande_reculer),
+            "jouer": bouton(self, "▶ Jouer", couleur="#2e8b57", commande=self.__commande_lecture),
+            "arreter": bouton(self, "■ Arrêter", couleur="#c0392b", commande=self.__commande_arreter),
+            "avancer": bouton(self, "Avancer ▶", commande=self.__commande_avancer)
         }
         self.temps = texte(self, "", gras=True)
         ligne_de_widgets(list(self.boutons.values()) + [texte(self, "dt (jours)"), self.dt, self.temps])
@@ -254,6 +262,63 @@ class BarreControle(ctk.CTkFrame):
 
     def afficher_temps(self, t: float):
         self.temps.configure(text=f"t = {t:.1f} jours")
+
+    @property
+    def t(self):
+        return self.__t
+
+    @t.setter
+    def t(self, value):
+        self.__t = max(0, min(value, self.master.simulateur.temps_max()))  # Garde la valeur de t entre 0 et temps_max
+        self.afficher_temps(self.__t)
+        self.master.vue.dessiner(*self.master.simulateur.astres_et_projectiles, self.t)
+
+    # Commandes des boutons
+    def __commande_reinitialiser(self):
+        """Réinitialise le temps et force le graphique à se recalculer."""
+        self.master.simulateur.recalculer()
+        self.__commande_arreter()
+
+    def __commande_arreter(self):
+        """Arrête le défilement du temps et revient à t=0."""
+        self.t = 0
+        self.__commande_pause()
+
+    def __commande_lecture(self):
+        """Fait défiler le temps."""
+        if not self.defil and self.t < self.master.simulateur.temps_max():
+            self.defil = True
+            self.mise_a_jour_lecture()
+            self.boutons["jouer"].configure(text="⏸ Pause", command=self.__commande_pause)
+        else:
+            self.__commande_pause()
+
+    def __commande_pause(self):
+        """Met sur pause le défilement du temps."""
+        self.defil = False
+        self.boutons["jouer"].configure(text="▶ Jouer", command=self.__commande_lecture)
+
+    def __commande_avancer(self):
+        """Avance de dt."""
+        self.t += float(self.dt.get())
+
+    def __commande_reculer(self):
+        """Recule de dt."""
+        self.t -= float(self.dt.get())
+
+    def __commande_curseur(self, value):
+        """Met à jour le temps lorsque le slider est utilisé"""
+        if self.defil:
+            self.__commande_pause()
+        self.t = round(value)
+
+    def mise_a_jour_lecture(self):
+        """Met à jour le temps à chaque 0.1 seconde"""
+        if self.defil and self.t < self.master.simulateur.temps_max():
+            self.t += float(self.dt.get())
+            self.after(100, self.mise_a_jour_lecture)
+        else:
+            self.__commande_pause()
 
 
 class FenetreSimulateur(ctk.CTk):
@@ -268,6 +333,7 @@ class FenetreSimulateur(ctk.CTk):
         self.geometry("1400x800")
         self.protocol("WM_DELETE_WINDOW", self.quit)  # NE PAS ENLEVER : ferme proprement la fenêtre
 
+        self.simulateur = Simulation()
         self.barre_haut = BarreHaut(self)
         self.gestionnaire = GestionnaireObjets(self)
         self.vue = VueGraphique(self)
@@ -306,5 +372,6 @@ if __name__ == "__main__":
     from src.chargeur_csv import charger_csv
 
     fenetre = FenetreSimulateur()
-    fenetre.afficher(*charger_csv("../donnees/systeme_solaire.csv"), "systeme_solaire.csv")
+    fenetre.simulateur.importer("../donnees/systeme_solaire.csv")
+    fenetre.afficher(*fenetre.simulateur.astres_et_projectiles, "systeme_solaire.csv")
     fenetre.mainloop()
