@@ -4,6 +4,7 @@ ce module contient la classe Projectile qui représente un projectile,
 
 """
 import numpy as np
+from src.exceptions import DebutHistorique , FinHistorique
 
 from src.astre import Astre
 
@@ -94,10 +95,10 @@ class Projectile(Astre):
         
                 """
                 if pas < self.temps_apparition:
-                    return self.historique[0]  # Retourne l'état initial avant l'apparition
+                    raise DebutHistorique("Le projectile n'a pas encore été créé")  # Retourne l'état initial avant l'apparition
                 
                 ligne = int(pas - self.temps_apparition)  # Nombre de pas depuis l'apparition
 
                 if ligne < len(self.historique):
                     return self.historique[ligne]  # Retourne ligne conplete
-                return self.historique[-1]  # Retourne le dernier état connu si le pas dépasse les pas calculés
+                raise FinHistorique("Le projectile ne s'est pas rendu là")  # Retourne le dernier état connu si le pas dépasse les pas calculés
