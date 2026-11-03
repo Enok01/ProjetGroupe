@@ -18,7 +18,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 
-from src.astre import Astre
+from src.astre import Astre, AstreFixe
 from src.chargeur_csv import couleur_aleatoire, sauvegarder
 from src.projectile import Projectile
 from src.simulation import Simulation
@@ -195,8 +195,8 @@ class VueGraphique(ctk.CTkFrame):
 
         actifs = [objet for objet in list(astres) + list(projectiles) if objet.actif]
 
-        # Vue carrée qui contient l'objet le plus loin (+10 %)
-        limite = 1.1 * max([np.linalg.norm(objet.position(t)) for objet in actifs] + [1])
+        # Vue carrée qui contient l'astre le plus loin (+10 %)
+        limite = 1.1 * max([np.linalg.norm(objet.position(t)) for objet in actifs if isinstance(objet, AstreFixe)] + [1])
 
         # Axes.set : https://matplotlib.org/stable/api/_as_gen/matplotlib.axes.Axes.set.html
         ax.set(xlim=(-limite, limite), ylim=(-limite, limite), aspect="equal", facecolor=FOND,
@@ -248,9 +248,9 @@ class VueGraphique(ctk.CTkFrame):
                 except FinHistorique:
                     match objet.etat:
                         case "expire":
-                            x, y = objet.historique[-1, 0]
+                            x, y = objet.historique[-1, 0], objet.historique[-1, 1]
                         case "hors systeme":
-                            x, y = objet.historique[-1, 0]
+                            x, y = objet.historique[-1, 0], objet.historique[-1, 1]
                         case "collision":
                             x, y = objet.cible.position(t)
                         case _:
@@ -325,7 +325,7 @@ class BarreControle(ctk.CTkFrame):
         ligne_de_widgets(list(self.boutons.values()) + [texte(self, "pas de temps (jours)"), self.pas_temps, self.temps])
         self.afficher_temps(0)
 
-    def afficher_temps(self, t: float):
+    def afficher_temps(self, t: int):
         self.temps.configure(text=f"t = {t} jours")
 
     @property
@@ -376,7 +376,7 @@ class BarreControle(ctk.CTkFrame):
         """Met à jour le temps à chaque 0.1 seconde"""
         if self.defil and self.t < self.master.simulateur.temps_max():
             self.after(100, self.mise_a_jour_lecture)  # programmé avant de dessiner : l'attente et le dessin se chevauchent
-            self.t += float(self.pas_temps.get())
+            self.t += int(self.pas_temps.get())
         else:
             self.__commande_pause()
 
