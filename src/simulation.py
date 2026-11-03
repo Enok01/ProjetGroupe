@@ -11,7 +11,6 @@ class Simulation:
         self.astres: list[AstreFixe] = []
         self.projectiles: list[Projectile] = []
         self.dt = 0.1
-        self.moments_cle: list[int] = []
 
     @property
     def astres_et_projectiles(self):
@@ -25,13 +24,12 @@ class Simulation:
         t_max = 0
         if self.projectiles:
             for projectile in self.projectiles:
-                temps_mort = projectile.temps_apparition + projectile.duree_vie
+                temps_mort = projectile.temps_apparition + len(projectile.historique)
                 if temps_mort > t_max:
                     t_max = temps_mort
         return t_max + padt
 
     def recalculer(self):
-        self.moments_cle = []  # On repart de zéro, sinon les moments-clés s'accumulent
         for projectile in self.projectiles:
             if projectile.actif:
                 projectile.reinitialiser()  # Efface l'ancien historique avant de recalculer
