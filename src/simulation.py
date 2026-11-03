@@ -76,9 +76,9 @@ class Simulation:
             if projectile.actif:
                 projectile.reinitialiser()  # Efface l'ancien historique avant de recalculer
                 try:
-                    projectile.cible = calculer_trajectoire(projectile, self.astres, self.dt, self.temps_max())
+                    projectile.cible = calculer_trajectoire(projectile, self.astres, self.dt, projectile.duree_vie)
                     if projectile.cible is not None:
-                        projectile.etat = "expire"
+                        projectile.etat = "collision"
                 except TempsMaximumAtteinte:
                     projectile.etat = "expire"
                 except HorsSystemeError:

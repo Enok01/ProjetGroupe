@@ -47,7 +47,7 @@ def calculer_trajectoire(projectile: Projectile, liste_astre: list[AstreFixe], d
     # créer une liste de position que le projectile a faite
     pos = projectile.pos0
     vit = projectile.vit0
-    t = 0  # en jour
+    t = projectile.temps_apparition  # en jour : les astres partent de leur position au lancement
     nombre_diteration_max = int(temps_maximum / dt)
 
     for i in range(nombre_diteration_max):

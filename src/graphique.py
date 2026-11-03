@@ -19,7 +19,8 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 
 from src.astre import Astre
-from src.chargeur_csv import sauvegarder
+from src.chargeur_csv import couleur_aleatoire, sauvegarder
+from src.projectile import Projectile
 from src.simulation import Simulation
 
 FOND = "#0f1424"   # bleu nuit derrière les astres
@@ -99,6 +100,7 @@ class GestionnaireObjets(ctk.CTkScrollableFrame):
 
     def __init__(self, master):
         super().__init__(master, width=480, label_text="Objets")
+        self.fenetre = master  # FenetreSimulateur, pour recalculer et redessiner quand une case change
         self.afficher()
 
     def afficher(self, astres=(), projectiles=()):
@@ -121,7 +123,7 @@ class GestionnaireObjets(ctk.CTkScrollableFrame):
             est_astre = objet in astres
 
             # CTkCheckBox (select = cocher) : https://customtkinter.tomschimansky.com/documentation/widgets/checkbox
-            case = ctk.CTkCheckBox(self, text="", width=30, command=self.CommandeCase(objet))
+            case = ctk.CTkCheckBox(self, text="", width=30, command=self.CommandeCase(objet, self.fenetre))
             if objet.actif:
                 case.select()
             case.grid(row=ligne, column=0)
@@ -143,14 +145,15 @@ class GestionnaireObjets(ctk.CTkScrollableFrame):
 
         *"Toute opportunité d'utiliser une classe-usine est une bonne opportunité." - Moi, 2026*
         """
-        def __init__(self, objet: Astre):
+        def __init__(self, objet: Astre, fenetre):
             self.objet: Astre = objet
+            self.fenetre = fenetre
 
         def __call__(self):
-            if self.objet.actif:
-                self.objet.actif = False
-            else:
-                self.objet.actif = True
+            self.objet.actif = not self.objet.actif
+            simulateur = self.fenetre.simulateur
+            simulateur.recalculer()  # un astre activé ou désactivé change l'attraction sur les projectiles
+            self.fenetre.vue.dessiner(*simulateur.astres_et_projectiles, self.fenetre.barre_controle.t)
 
 
 class VueGraphique(ctk.CTkFrame):
@@ -341,12 +344,6 @@ class BarreControle(ctk.CTkFrame):
         """Recule de dt."""
         self.t -= float(self.dt.get())
 
-    def __commande_curseur(self, value):
-        """Met à jour le temps lorsque le slider est utilisé"""
-        if self.defil:
-            self.__commande_pause()
-        self.t = round(value)
-
     def mise_a_jour_lecture(self):
         """Met à jour le temps à chaque 0.1 seconde"""
         if self.defil and self.t < self.master.simulateur.temps_max():
@@ -354,6 +351,56 @@ class BarreControle(ctk.CTkFrame):
             self.t += float(self.dt.get())
         else:
             self.__commande_pause()
+
+
+class FormulaireProjectile(ctk.CTkToplevel):
+    """
+    Fenêtre « Lancer un projectile » : on saisit la position et la vitesse, le projectile part au temps actuel.
+    La couleur est choisie automatiquement.
+
+    CTkToplevel (fenêtre secondaire) : https://customtkinter.tomschimansky.com/documentation/windows/toplevel
+    """
+
+    # (clé, libellé, valeur proposée) ; repère : vitesse circulaire à 1 UA ≈ 0,0172 UA/j
+    CHAMPS = (("nom", "Nom", "Projectile"), ("x0", "x (UA)", "1.5"), ("y0", "y (UA)", "0"),
+              ("vx0", "vx (UA/j)", "0"), ("vy0", "vy (UA/j)", "0.014"), ("masse", "Masse (MT)", "0.001"),
+              ("rayon", "Rayon (UA)", "0.000001"), ("duree_vie", "Durée de vie (jours)", "1000"))
+
+    def __init__(self, master, lancer):
+        super().__init__(master)
+        self.title("Lancer un projectile")
+        self.lancer = lancer  # fonction qui reçoit le nom et les nombres, et renvoie un message d'erreur ou None
+        self.entrees = {}
+        for ligne, (cle, libelle, defaut) in enumerate(self.CHAMPS):
+            texte(self, libelle).grid(row=ligne, column=0, padx=12, pady=3, sticky="w")
+            self.entrees[cle] = ctk.CTkEntry(self, width=160)
+            self.entrees[cle].insert(0, defaut)
+            self.entrees[cle].grid(row=ligne, column=1, padx=12, pady=3)
+        self.erreur = ctk.CTkLabel(self, text="", text_color="#FF6B6B", wraplength=300)
+        self.erreur.grid(row=len(self.CHAMPS), column=0, columnspan=2, padx=12)
+        bouton(self, "Lancer", self.valider).grid(row=len(self.CHAMPS) + 1, column=0, columnspan=2, pady=10)
+        self.after(100, self.grab_set)  # garde clavier et souris sur le formulaire une fois affiché
+
+    def valider(self):
+        """Vérifie les champs ; ferme la fenêtre si le projectile a été lancé, sinon affiche l'erreur."""
+        nom = self.entrees["nom"].get().strip()
+        try:
+            # replace : accepte aussi la virgule décimale (1,5)
+            nombres = {cle: float(entree.get().replace(",", ".")) for cle, entree in self.entrees.items() if cle != "nom"}
+        except ValueError:
+            nombres = None
+        if not nom:
+            erreur = "Le nom est obligatoire."
+        elif nombres is None:
+            erreur = "Position, vitesse, masse, rayon et durée de vie doivent être des nombres."
+        elif nombres["duree_vie"] <= 0:
+            erreur = "La durée de vie doit être strictement positive."
+        else:
+            erreur = self.lancer(nom, nombres)
+        if erreur:
+            self.erreur.configure(text=erreur)
+        else:
+            self.destroy()
 
 
 class FenetreSimulateur(ctk.CTk):
@@ -370,7 +417,7 @@ class FenetreSimulateur(ctk.CTk):
 
         self.simulateur = Simulation()
         self.barre_haut = BarreHaut(self, ouvrir=self.ouvrir_csv, enregistrer=self.enregistrer_csv,
-                                    lancer=self.lancer_projectiles)
+                                    lancer=lambda: FormulaireProjectile(self, self.lancer_projectile))
         self.gestionnaire = GestionnaireObjets(self)
         self.vue = VueGraphique(self)
         self.details = DetailsProjectile(self, exporter=self.exporter_trajectoire)
@@ -462,14 +509,29 @@ class FenetreSimulateur(ctk.CTk):
         except (OSError, ValueError) as erreur:
             tk_msgbx.showerror("L'enregistrement a échoué !", str(erreur), parent=self)
 
-    def lancer_projectiles(self):
-        """Recalcule la trajectoire de chaque projectile actif, puis redessine au temps actuel."""
-        if not self.simulateur.astres or not self.simulateur.projectiles:
-            tk_msgbx.showinfo("Lancer un projectile",
-                              "Ouvre d'abord un CSV qui contient des astres et au moins un projectile.", parent=self)
-            return
+    def lancer_projectile(self, nom: str, n: dict):
+        """
+        Lance au temps actuel le projectile saisi dans le formulaire, avec une couleur choisie automatiquement.
+
+        :param nom: Nom du projectile
+        :param n: Nombres saisis (x0, y0, vx0, vy0, masse, rayon, duree_vie)
+        :return: Un message d'erreur, ou None si le projectile a été lancé
+        """
+        if not self.simulateur.astres:
+            return "Ouvrez d'abord un CSV qui contient des astres."
+        objets = self.simulateur.astres + self.simulateur.projectiles
+        if nom in [objet.nom for objet in objets]:
+            return f"Le nom « {nom} » est déjà utilisé."
+        couleur = couleur_aleatoire({objet.couleur for objet in objets})  # différente des couleurs déjà prises
+        try:
+            projectile = Projectile(nom, n["masse"], couleur, 0.5, n["rayon"], (n["x0"], n["y0"]), (n["vx0"], n["vy0"]),
+                                    self.barre_controle.t, n["duree_vie"])
+        except ValueError as erreur:  # masse ou rayon négatifs
+            return str(erreur)
+        self.simulateur.projectiles.append(projectile)
         self.simulateur.recalculer()
         self.afficher(*self.simulateur.astres_et_projectiles, self.cache["nom_fichier"], self.barre_controle.t)
+        return None
 
     def exporter_trajectoire(self):
         """Écrit la trajectoire du projectile choisi dans un CSV : une ligne par jour (t, x, y, vx, vy)."""
