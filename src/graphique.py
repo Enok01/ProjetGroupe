@@ -10,8 +10,8 @@ Documentation officielle :
 """
 
 import os
-import tkinter.filedialog as tk_fd
-import tkinter.messagebox as tk_msgbx
+import tkinter.filedialog as filedialog
+import tkinter.messagebox as messagebox
 import customtkinter as ctk
 import numpy as np
 import pandas as pd
@@ -22,6 +22,7 @@ from src.astre import Astre
 from src.chargeur_csv import couleur_aleatoire, sauvegarder
 from src.projectile import Projectile
 from src.simulation import Simulation
+from src.exceptions import DebutHistorique, FinHistorique
 
 FOND = "#0f1424"   # bleu nuit derrière les astres
 
@@ -100,7 +101,6 @@ class GestionnaireObjets(ctk.CTkScrollableFrame):
 
     def __init__(self, master):
         super().__init__(master, width=480, label_text="Objets")
-        self.fenetre = master  # FenetreSimulateur, pour recalculer et redessiner quand une case change
         self.afficher()
 
     def afficher(self, astres=(), projectiles=()):
@@ -123,7 +123,7 @@ class GestionnaireObjets(ctk.CTkScrollableFrame):
             est_astre = objet in astres
 
             # CTkCheckBox (select = cocher) : https://customtkinter.tomschimansky.com/documentation/widgets/checkbox
-            case = ctk.CTkCheckBox(self, text="", width=30, command=self.CommandeCase(objet, self.fenetre))
+            case = ctk.CTkCheckBox(self, text="", width=30, command=self.CommandeCase(objet))
             if objet.actif:
                 case.select()
             case.grid(row=ligne, column=0)
@@ -145,15 +145,14 @@ class GestionnaireObjets(ctk.CTkScrollableFrame):
 
         *"Toute opportunité d'utiliser une classe-usine est une bonne opportunité." - Moi, 2026*
         """
-        def __init__(self, objet: Astre, fenetre):
+        def __init__(self, objet: Astre):
             self.objet: Astre = objet
-            self.fenetre = fenetre
 
         def __call__(self):
-            self.objet.actif = not self.objet.actif
-            simulateur = self.fenetre.simulateur
-            simulateur.recalculer()  # un astre activé ou désactivé change l'attraction sur les projectiles
-            self.fenetre.vue.dessiner(*simulateur.astres_et_projectiles, self.fenetre.barre_controle.t)
+            if self.objet.actif:
+                self.objet.actif = False
+            else:
+                self.objet.actif = True
 
 
 class VueGraphique(ctk.CTkFrame):
@@ -201,7 +200,7 @@ class VueGraphique(ctk.CTkFrame):
 
         # Axes.set : https://matplotlib.org/stable/api/_as_gen/matplotlib.axes.Axes.set.html
         ax.set(xlim=(-limite, limite), ylim=(-limite, limite), aspect="equal", facecolor=FOND,
-               title=f"t = {t:.1f} jours", xlabel="x (UA)", ylabel="y (UA)")
+               title=f"t = {t} jours", xlabel="x (UA)", ylabel="y (UA)")
 
         # Texte en gris clair, sinon il est noir sur le fond bleu nuit
         # tick_params : https://matplotlib.org/stable/api/_as_gen/matplotlib.axes.Axes.tick_params.html
@@ -218,18 +217,47 @@ class VueGraphique(ctk.CTkFrame):
                         linewidth=0.8, alpha=0.7)
 
         for objet in actifs:
-            x, y = objet.position(t)
-            if objet in astres and objet.distance > 0:
-                # Circle + add_patch : cercle de l'orbite autour du Soleil ou du parent
-                # https://matplotlib.org/stable/api/_as_gen/matplotlib.patches.Circle.html
-                centre = objet.parent.position(t) if objet.parent else (0, 0)
-                ax.add_patch(plt.Circle(centre, objet.distance, fill=False, color=objet.couleur, alpha=0.4))
             # np.sqrt : racine carrée, pour que le Soleil (taille 109) ne cache pas tout
             taille = max(8, 20 * np.sqrt(objet.taille)) if objet in astres else 25
 
-            # scatter dessine un point, annotate écrit un texte à côté
-            ax.scatter(x, y, taille, objet.couleur, zorder=3)
-            ax.annotate(objet.nom, (x, y), xytext=(4, 2), textcoords="offset points", color="white", fontsize=7)
+            if objet in astres:
+                x, y = objet.position(t)
+
+                if objet.distance > 0:
+                    # Circle + add_patch : cercle de l'orbite autour du Soleil ou du parent
+                    # https://matplotlib.org/stable/api/_as_gen/matplotlib.patches.Circle.html
+                    centre = objet.parent.position(t) if objet.parent else (0, 0)
+                    ax.add_patch(plt.Circle(centre, objet.distance, fill=False, color=objet.couleur, alpha=0.4))
+
+                # np.sqrt : racine carrée, pour que le Soleil (taille 109) ne cache pas tout
+                taille = max(8, 20 * np.sqrt(objet.taille)) if objet in astres else 25
+
+                # scatter dessine un point, annotate écrit un texte à côté
+                ax.scatter(x, y, taille, objet.couleur, zorder=3)
+                ax.annotate(objet.nom, (x, y), xytext=(4, 2), textcoords="offset points", color="white", fontsize=7)
+
+            elif objet in projectiles:
+                try:
+                    x, y = objet.position(t)
+                    ax.scatter(x, y, taille, objet.couleur, zorder=3)
+                    ax.annotate(objet.nom, (x, y), xytext=(4, 2), textcoords="offset points", color="white", fontsize=7)
+                except DebutHistorique:
+                    x, y = objet.pos0
+                    ax.scatter(x, y, taille, objet.couleur, zorder=3, marker="*")
+                    ax.annotate(objet.nom, (x, y), xytext=(4, 2), textcoords="offset points", color="white", fontsize=7)
+                except FinHistorique:
+                    match objet.etat:
+                        case "expire":
+                            x, y = objet.historique[-1, 0]
+                        case "hors systeme":
+                            x, y = objet.historique[-1, 0]
+                        case "collision":
+                            x, y = objet.cible.position(t)
+                        case _:
+                            raise ValueError("État du projectile invalide!")
+                    ax.scatter(x, y, taille, objet.couleur, zorder=3, marker="x")
+                    ax.annotate(objet.nom, (x, y), xytext=(4, 2), textcoords="offset points", color="white", fontsize=7)
+
         self.canvas.draw_idle()  # redessine la figure dans la fenêtre dès que possible
 
 
@@ -276,8 +304,8 @@ class BarreControle(ctk.CTkFrame):
         self.master: FenetreSimulateur
 
         # CTkEntry (case où l'on écrit) : https://customtkinter.tomschimansky.com/documentation/widgets/entry
-        self.dt = ctk.CTkEntry(self, width=60)
-        self.dt.insert(0, "0.5")  # texte de départ
+        self.pas_temps = ctk.CTkEntry(self, width=60)
+        self.pas_temps.insert(0, "5")  # texte de départ
 
         # Défilement du temps
         self.defil = False
@@ -294,11 +322,11 @@ class BarreControle(ctk.CTkFrame):
             "avancer": bouton(self, "Avancer ▶", commande=self.__commande_avancer)
         }
         self.temps = texte(self, "", gras=True)
-        ligne_de_widgets(list(self.boutons.values()) + [texte(self, "dt (jours)"), self.dt, self.temps])
+        ligne_de_widgets(list(self.boutons.values()) + [texte(self, "pas de temps (jours)"), self.pas_temps, self.temps])
         self.afficher_temps(0)
 
     def afficher_temps(self, t: float):
-        self.temps.configure(text=f"t = {t:.1f} jours")
+        self.temps.configure(text=f"t = {t} jours")
 
     @property
     def t(self):
@@ -338,17 +366,17 @@ class BarreControle(ctk.CTkFrame):
 
     def __commande_avancer(self):
         """Avance de dt."""
-        self.t += float(self.dt.get())
+        self.t += int(self.pas_temps.get())
 
     def __commande_reculer(self):
         """Recule de dt."""
-        self.t -= float(self.dt.get())
+        self.t -= int(self.pas_temps.get())
 
     def mise_a_jour_lecture(self):
         """Met à jour le temps à chaque 0.1 seconde"""
         if self.defil and self.t < self.master.simulateur.temps_max():
             self.after(100, self.mise_a_jour_lecture)  # programmé avant de dessiner : l'attente et le dessin se chevauchent
-            self.t += float(self.dt.get())
+            self.t += float(self.pas_temps.get())
         else:
             self.__commande_pause()
 
@@ -489,25 +517,25 @@ class FenetreSimulateur(ctk.CTk):
         """Demande un fichier CSV et le charge dans la simulation."""
         # askopenfilename renvoie le chemin choisi ("" si annulé)
         # https://docs.python.org/3/library/dialog.html#tkinter.filedialog.askopenfilename
-        chemin = tk_fd.askopenfilename(filetypes=[("Fichiers CSV", "*.csv")], parent=self)
+        chemin = filedialog.askopenfilename(filetypes=[("Fichiers CSV", "*.csv")], parent=self)
         if not chemin:
             return
         try:
             self.charger(chemin)
         except (OSError, KeyError, ValueError) as erreur:  # OSError couvre FileNotFoundError et PermissionError
-            tk_msgbx.showerror("Le chargement a échoué !", str(erreur), parent=self)
+            messagebox.showerror("Le chargement a échoué !", str(erreur), parent=self)
 
     def enregistrer_csv(self):
         """Demande où enregistrer, puis écrit les astres et projectiles dans un CSV rechargeable."""
         # asksaveasfilename : defaultextension ajoute .csv si oublié
         # https://docs.python.org/3/library/dialog.html#tkinter.filedialog.asksaveasfilename
-        chemin = tk_fd.asksaveasfilename(defaultextension=".csv", filetypes=[("Fichiers CSV", "*.csv")], parent=self)
+        chemin = filedialog.asksaveasfilename(defaultextension=".csv", filetypes=[("Fichiers CSV", "*.csv")], parent=self)
         if not chemin:
             return
         try:
             sauvegarder(self.simulateur, chemin)
         except (OSError, ValueError) as erreur:
-            tk_msgbx.showerror("L'enregistrement a échoué !", str(erreur), parent=self)
+            messagebox.showerror("L'enregistrement a échoué !", str(erreur), parent=self)
 
     def lancer_projectile(self, nom: str, n: dict):
         """
@@ -538,10 +566,10 @@ class FenetreSimulateur(ctk.CTk):
         nom = self.details.choix.get()
         projectile = next((p for p in self.simulateur.projectiles if p.nom == nom), None)
         if projectile is None or len(projectile.historique) < 2:
-            tk_msgbx.showinfo("Exporter la trajectoire", "Aucune trajectoire calculée pour ce projectile.", parent=self)
+            messagebox.showinfo("Exporter la trajectoire", "Aucune trajectoire calculée pour ce projectile.", parent=self)
             return
-        chemin = tk_fd.asksaveasfilename(defaultextension=".csv", filetypes=[("Fichiers CSV", "*.csv")],
-                                         initialfile=f"trajectoire_{nom}.csv", parent=self)
+        chemin = filedialog.asksaveasfilename(defaultextension=".csv", filetypes=[("Fichiers CSV", "*.csv")],
+                                              initialfile=f"trajectoire_{nom}.csv", parent=self)
         if not chemin:
             return
         # Une ligne de l'historique par jour depuis l'apparition, d'où t = temps_apparition + numéro de ligne
@@ -551,7 +579,7 @@ class FenetreSimulateur(ctk.CTk):
         try:
             trajectoire.to_csv(chemin, index=False)
         except OSError as erreur:
-            tk_msgbx.showerror("L'export a échoué !", str(erreur), parent=self)
+            messagebox.showerror("L'export a échoué !", str(erreur), parent=self)
 
 
 # Aperçu de l'interface : « python -m src.graphique » depuis la racine du projet
