@@ -221,11 +221,11 @@ def valider_csv(df):
         else:
             if valeurs["temps_apparition"] < 0:
                 erreurs.append(f" la valeur de 'temps_apparition' pour l'objet {row['nom']} n'est pas valide :"
-                               f"{row["temps_apparition"]}. La valeur doit être positive.")
+                               f"{row['temps_apparition']}. La valeur doit être positive.")
 
             if valeurs["duree_vie"] <= 0:
                 erreurs.append(f" la valeur de 'duree_vie' pour l'objet {row['nom']} n'est pas valide :"
-                               f"{row["duree_vie"]}. La valeur doit être positive.")
+                               f"{row['duree_vie']}. La valeur doit être positive.")
 
         if row["parent"] not in df["nom"].values and not pd.isna(row["parent"]):
             erreurs.append(f" la valeur de 'parent' pour l'objet {row['nom']} n'est pas valide : {row['parent']}."

@@ -71,8 +71,10 @@ class Simulation:
         self.moments_cle.sort()
 
     def recalculer(self):
+        self.moments_cle = []  # On repart de zéro, sinon les moments-clés s'accumulent
         for projectile in self.projectiles:
             if projectile.actif:
+                projectile.reinitialiser()  # Efface l'ancien historique avant de recalculer
                 try:
                     projectile.cible = calculer_trajectoire(projectile, self.astres, self.dt, self.temps_max())
                     if projectile.cible is not None:

@@ -9,14 +9,17 @@ Documentation officielle :
     placement grid : https://tkdocs.com/tutorial/grid.html
 """
 
+import os
 import tkinter.filedialog as tk_fd
 import tkinter.messagebox as tk_msgbx
 import customtkinter as ctk
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 
 from src.astre import Astre
+from src.chargeur_csv import sauvegarder
 from src.simulation import Simulation
 
 FOND = "#0f1424"   # bleu nuit derrière les astres
@@ -200,6 +203,14 @@ class VueGraphique(ctk.CTkFrame):
         for etiquette in (ax.title, ax.xaxis.label, ax.yaxis.label):
             etiquette.set_color("lightgray")
 
+        # Trajectoire complète des projectiles déjà calculés
+        # historique[:, 0] = tous les x, historique[:, 1] = tous les y : https://numpy.org/doc/stable/user/basics.indexing.html
+        # plot relie les points par une ligne : https://matplotlib.org/stable/api/_as_gen/matplotlib.axes.Axes.plot.html
+        for projectile in projectiles:
+            if projectile.actif and len(projectile.historique) > 1:
+                ax.plot(projectile.historique[:, 0], projectile.historique[:, 1], color=projectile.couleur,
+                        linewidth=0.8, alpha=0.7)
+
         for objet in actifs:
             x, y = objet.position(t)
             if objet in astres and objet.distance > 0:
@@ -356,10 +367,11 @@ class FenetreSimulateur(ctk.CTk):
         self.protocol("WM_DELETE_WINDOW", self.quit)  # NE PAS ENLEVER : ferme proprement la fenêtre
 
         self.simulateur = Simulation()
-        self.barre_haut = BarreHaut(self, ouvrir=self.ouvrir_csv)
+        self.barre_haut = BarreHaut(self, ouvrir=self.ouvrir_csv, enregistrer=self.enregistrer_csv,
+                                    lancer=self.lancer_projectiles)
         self.gestionnaire = GestionnaireObjets(self)
         self.vue = VueGraphique(self)
-        self.details = DetailsProjectile(self)
+        self.details = DetailsProjectile(self, exporter=self.exporter_trajectoire)
         self.barre_controle = BarreControle(self)
 
         # sticky="nsew" : le panneau s'étire dans sa case ; columnspan=3 : la barre prend les 3 colonnes
@@ -412,21 +424,74 @@ class FenetreSimulateur(ctk.CTk):
             self.cache["nom_fichier"] = nom_fichier
             self.cache["t"] = t
 
+    def charger(self, chemin: str):
+        """
+        Charge un CSV dans la simulation, calcule les trajectoires puis affiche le tout à t = 0.
+
+        :param chemin: Chemin du fichier CSV
+        """
+        self.simulateur.importer(chemin)
+        self.simulateur.recalculer()
+        # os.path.basename garde seulement le nom du fichier : https://docs.python.org/3/library/os.path.html
+        self.afficher(*self.simulateur.astres_et_projectiles, os.path.basename(chemin))
+        self.barre_controle.t = 0
+
     def ouvrir_csv(self):
-        fichier = tk_fd.askopenfile(filetypes=[("Fichiers CSV", "*.csv")], parent=self)
-        if not fichier:
+        """Demande un fichier CSV et le charge dans la simulation."""
+        # askopenfilename renvoie le chemin choisi ("" si annulé)
+        # https://docs.python.org/3/library/dialog.html#tkinter.filedialog.askopenfilename
+        chemin = tk_fd.askopenfilename(filetypes=[("Fichiers CSV", "*.csv")], parent=self)
+        if not chemin:
             return
         try:
-            self.simulateur.importer(fichier)
-        except (FileNotFoundError, PermissionError, ValueError, OSError) as erreur:
+            self.charger(chemin)
+        except (OSError, KeyError, ValueError) as erreur:  # OSError couvre FileNotFoundError et PermissionError
             tk_msgbx.showerror("Le chargement a échoué !", str(erreur), parent=self)
+
+    def enregistrer_csv(self):
+        """Demande où enregistrer, puis écrit les astres et projectiles dans un CSV rechargeable."""
+        # asksaveasfilename : defaultextension ajoute .csv si oublié
+        # https://docs.python.org/3/library/dialog.html#tkinter.filedialog.asksaveasfilename
+        chemin = tk_fd.asksaveasfilename(defaultextension=".csv", filetypes=[("Fichiers CSV", "*.csv")], parent=self)
+        if not chemin:
             return
-        self.afficher(*fenetre.simulateur.astres_et_projectiles, fichier.name)
+        try:
+            sauvegarder(self.simulateur, chemin)
+        except (OSError, ValueError) as erreur:
+            tk_msgbx.showerror("L'enregistrement a échoué !", str(erreur), parent=self)
+
+    def lancer_projectiles(self):
+        """Recalcule la trajectoire de chaque projectile actif, puis redessine au temps actuel."""
+        if not self.simulateur.astres or not self.simulateur.projectiles:
+            tk_msgbx.showinfo("Lancer un projectile",
+                              "Ouvre d'abord un CSV qui contient des astres et au moins un projectile.", parent=self)
+            return
+        self.simulateur.recalculer()
+        self.afficher(*self.simulateur.astres_et_projectiles, self.cache["nom_fichier"], self.barre_controle.t)
+
+    def exporter_trajectoire(self):
+        """Écrit la trajectoire du projectile choisi dans un CSV : une ligne par jour (t, x, y, vx, vy)."""
+        nom = self.details.choix.get()
+        projectile = next((p for p in self.simulateur.projectiles if p.nom == nom), None)
+        if projectile is None or len(projectile.historique) < 2:
+            tk_msgbx.showinfo("Exporter la trajectoire", "Aucune trajectoire calculée pour ce projectile.", parent=self)
+            return
+        chemin = tk_fd.asksaveasfilename(defaultextension=".csv", filetypes=[("Fichiers CSV", "*.csv")],
+                                         initialfile=f"trajectoire_{nom}.csv", parent=self)
+        if not chemin:
+            return
+        # Une ligne de l'historique par jour depuis l'apparition, d'où t = temps_apparition + numéro de ligne
+        # np.arange(n) donne 0, 1, ..., n-1 : https://numpy.org/doc/stable/reference/generated/numpy.arange.html
+        trajectoire = pd.DataFrame(projectile.historique, columns=["x", "y", "vx", "vy"])
+        trajectoire.insert(0, "t", projectile.temps_apparition + np.arange(len(trajectoire)))
+        try:
+            trajectoire.to_csv(chemin, index=False)
+        except OSError as erreur:
+            tk_msgbx.showerror("L'export a échoué !", str(erreur), parent=self)
 
 
 # Aperçu de l'interface : « python -m src.graphique » depuis la racine du projet
 if __name__ == "__main__":
     fenetre = FenetreSimulateur()
-    fenetre.simulateur.importer("../donnees/systeme_solaire.csv")
-    fenetre.afficher(*fenetre.simulateur.astres_et_projectiles, "(Par Défaut) Système Solaire")
+    fenetre.charger("donnees/systeme_solaire.csv")
     fenetre.mainloop()
