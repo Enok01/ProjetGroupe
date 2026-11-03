@@ -86,27 +86,20 @@ def acceleration( pos: list[float], astres_positions: list[tuple[AstreFixe, tupl
 
     Levy : fonction écrite pour regrouper les deux boucles d'accélération de prochaine_pos_vit.
     """
-    #np.array crée le vecteur accélération [ax, ay] de départ : https://numpy.org/doc/stable/reference/generated/numpy.array.html
-    a = np.array([0.0, 0.0])
-    for astre, pos_astre in astres_positions:
-        # Un astre inactif n'attire pas
-        if not astre.actif:
-            continue
+    # Un astre inactif n'attire pas
+    actifs = [(astre.masse, pos_astre) for astre, pos_astre in astres_positions if astre.actif]
+    if not actifs:
+        return np.zeros(2)
+    # Tous les astres d'un coup avec numpy (une boucle Python par astre était le plus lent du programme)
+    masses = np.array([masse for masse, _ in actifs])
+    vecteurs_astre_projectile = np.array([pos_astre for _, pos_astre in actifs]) - pos
+    distances2 = (vecteurs_astre_projectile ** 2).sum(axis=1)
+    masses[distances2 < 1e-12] = 0  # Pour eviter les divisions par 0 : un astre au même point n'attire pas
+    distances2 = np.maximum(distances2, 1e-12)
 
-        # Trouve la distance entre le projectile et l'astre fixe
-        vecteur_astre_projectile = pos_astre - pos
-        distance2 = vecteur_astre_projectile[0] ** 2 + vecteur_astre_projectile[1] ** 2
-        if distance2 < 1e-12:  # Pour eviter les divisions par 0
-            continue
-
-        # Trouve les vecteurs unitaires du vecteur entre le projectile et l'astre fixe
-        #np.sqrt : racine carrée, ici la distance à partir de la distance au carré
-        #https://numpy.org/doc/stable/reference/generated/numpy.sqrt.html
-        vect_unitaire = vecteur_astre_projectile / np.sqrt(distance2)
-
-        # Calcule l’accélération avec l'équation Fg = Gm1m2/d**2 et a = F/m1, qui combiner ensemble : G * m2/d**2
-        a += vect_unitaire * G * astre.masse / distance2
-    return a
+    # Fg = Gm1m2/d**2 et a = F/m1, donc a = G * m2/d**2 dans la direction vecteur / d, soit G * m2 * vecteur / d**3.
+    # @ (produit matriciel) additionne les contributions de tous les astres : https://numpy.org/doc/stable/reference/generated/numpy.matmul.html
+    return (G * masses / distances2 ** 1.5) @ vecteurs_astre_projectile
 
 
 def prochaine_pos_vit( pos: list[float], astres_positions: list[tuple[AstreFixe, tuple[float, float]]], dt: float, v: list[float] ) -> tuple[tuple]:

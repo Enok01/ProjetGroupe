@@ -165,6 +165,9 @@ class VueGraphique(ctk.CTkFrame):
         # https://matplotlib.org/stable/api/figure_api.html
         self.fig = plt.Figure(figsize=(6, 6), facecolor=FOND)
         self.ax = self.fig.add_subplot(111)
+        # Marges fixes pour les titres des axes, réglées une seule fois (tight_layout à chaque image était lent)
+        # https://matplotlib.org/stable/api/_as_gen/matplotlib.figure.Figure.subplots_adjust.html
+        self.fig.subplots_adjust(left=0.1, right=0.97, top=0.94, bottom=0.08)
 
         # FigureCanvasTkAgg met la figure dans tkinter, NavigationToolbar2Tk ajoute les boutons zoom/déplacement
         # https://matplotlib.org/stable/api/backend_tk_api.html
@@ -224,7 +227,6 @@ class VueGraphique(ctk.CTkFrame):
             # scatter dessine un point, annotate écrit un texte à côté
             ax.scatter(x, y, taille, objet.couleur, zorder=3)
             ax.annotate(objet.nom, (x, y), xytext=(4, 2), textcoords="offset points", color="white", fontsize=7)
-        self.fig.tight_layout()  # laisse la place aux titres des axes
         self.canvas.draw_idle()  # redessine la figure dans la fenêtre dès que possible
 
 
@@ -348,8 +350,8 @@ class BarreControle(ctk.CTkFrame):
     def mise_a_jour_lecture(self):
         """Met à jour le temps à chaque 0.1 seconde"""
         if self.defil and self.t < self.master.simulateur.temps_max():
+            self.after(100, self.mise_a_jour_lecture)  # programmé avant de dessiner : l'attente et le dessin se chevauchent
             self.t += float(self.dt.get())
-            self.after(100, self.mise_a_jour_lecture)
         else:
             self.__commande_pause()
 
