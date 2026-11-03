@@ -182,7 +182,7 @@ def valider_csv(df):
         if row["parent"] not in df["nom"].values and not pd.isna(row["parent"]):
             erreurs.append(f" la valeur de 'parent' pour l'objet {row['nom']} n'est pas valide : {row['parent']}. La valeur doit être le nom d'un autre objet ou None.")
 
-        #couleur 
+
     return erreurs
 
 
@@ -242,6 +242,6 @@ def sauvegarder(sim, fichier):
     except PermissionError:
         raise ValueError(f"Impossible d'écrire dans « {fichier} ». il est peut-être ouvert dans un autre programme.")
     except OSError:
-          raise ValueError(f"Impossible de créer le fichier « {fichier} ». Vérifiez que le dossier existe.")
+        raise ValueError(f"Impossible de créer le fichier « {fichier} ». Vérifiez que le dossier existe.")
 
     
