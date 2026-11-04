@@ -7,6 +7,8 @@ import numpy as np
 from src.exceptions import DebutHistorique , FinHistorique
 
 from src.astre import Astre
+from src.exceptions import DebutHistorique, FinHistorique
+
 
 class Projectile(Astre):
     def __init__(self,nom, masse, couleur, taille, rayon,pos0,
@@ -69,17 +71,21 @@ class Projectile(Astre):
                 """
 
     def position(self, t):
-                """
-                Calcule la position du projectile à un instant donné t.
+        """
+        Calcule la position du projectile à un instant donné t.
 
-                Args:
-                    t (float): Temps de la simulation, en jours (1 pas = 1 journée)
+        Args:
+            t (float): Temps de la simulation, en jours (1 pas = 1 journée)
 
-                Returns:
-                    np.array: Position du projectile à l'instant t.
-                """
-
-                return self.etat_a(t)[:2]  # Retourne seulement les coordonnées x et y de l'état complet à l'instant t
+        Returns:
+            np.array: Position du projectile à l'instant t.
+        """
+        try:
+            return self.etat_a(t)[:2]  # Retourne seulement les coordonnées x et y de l'état complet à l'instant t
+        except DebutHistorique as e:
+            raise DebutHistorique(str(e))
+        except FinHistorique as e:
+            raise FinHistorique(str(e))
 
 
     def etat_a(self, pas):

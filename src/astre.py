@@ -1,3 +1,11 @@
+"""
+Classes des objets de la simulation (Levy) : Astre (classe abstraite) et AstreFixe (orbite circulaire).
+
+Documentation officielle :
+    numpy : https://numpy.org/doc/stable/reference/
+    classes abstraites (abc) : https://docs.python.org/3/library/abc.html
+    pandas Series.get (lecture d'une ligne du CSV) : https://pandas.pydata.org/docs/reference/api/pandas.Series.get.html
+"""
 from abc import ABC, abstractmethod
 
 import numpy as np
@@ -11,8 +19,21 @@ G = G_SI * MT_EN_KG * JOUR_EN_S ** 2 / UA_EN_M ** 3
 
 
 def en_booleen(valeur) -> bool:
+    """_summary_
+
+    Args:
+        valeur (_type_): _description_
+
+    Raises:
+        ValueError: _description_
+
+    Returns:
+        bool: _description_
+    """
     #Convertit la valeur « actif » du CSV ou d'un formulaire en booléen.
     #Attention : bool("false") vaut True en Python, d'où cette fonction.
+    #np.bool_ : le type booléen de numpy, que pandas donne quand il lit true/false dans le CSV
+    #https://numpy.org/doc/stable/reference/arrays.scalars.html#numpy.bool
     if isinstance(valeur, (bool, np.bool_)):
         return bool(valeur)
     texte = str(valeur).strip().lower()
@@ -24,6 +45,7 @@ def en_booleen(valeur) -> bool:
 
 
 class Astre(ABC):
+    
     #Classe abstraite commune aux astres fixes et aux projectiles.
     """
     Attributs :
@@ -55,29 +77,6 @@ class Astre(ABC):
         #Renvoie la position (x, y) en UA au temps t (jours), tableau numpy de forme (2,).
         pass
 
-    def distance_a(self, point, t: float) -> float:
-        #Distance en UA entre le centre de l'objet au temps t et un point (x, y).
-        return float(np.linalg.norm(np.asarray(point, dtype=float) - self.position(t)))
-
-    def contient(self, point, t: float) -> bool:
-        #Vrai si le point (x, y) est à l'intérieur du rayon de collision au temps t (sert à détecter les collisions).
-        return self.distance_a(point, t) < self.rayon
-
-    def acceleration_sur(self, point, t: float) -> np.ndarray:
-        #Accélération gravitationnelle (UA/jour²) que l'objet exerce sur un point (x, y) au temps t :
-        #a = G * M * (r_astre - r) / ||r_astre - r||³. Un objet inactif ou sans masse n'attire pas.
-        if not self.actif or self.masse == 0:
-            return np.zeros(2)
-        ecart = self.position(t) - np.asarray(point, dtype=float)
-        distance = np.linalg.norm(ecart)
-        if distance == 0:
-            #Point au centre exact : la force n'est pas définie, on renvoie zéro pour éviter la division par 0
-            return np.zeros(2)
-        return G * self.masse * ecart / distance ** 3
-
-    def __str__(self):
-        return f"Astre(nom={self.nom}, masse={self.masse}, couleur={self.couleur}, taille={self.taille}, rayon={self.rayon}, actif={self.actif})"
-
 
 class AstreFixe(Astre):
     #Astre en orbite circulaire autour du centre (0, 0) ou autour de son parent (lune).
@@ -92,6 +91,25 @@ class AstreFixe(Astre):
     #Constructeur de la classe AstreFixe
     def __init__(self, nom: str, masse: float, couleur: str, taille: float, rayon: float, actif: bool = True,
                  distance: float = 0.0, periode: float = 0.0, phase: float = 0.0, parent=None):
+        """_summary_
+
+        Args:
+            nom (str): _description_
+            masse (float): _description_
+            couleur (str): _description_
+            taille (float): _description_
+            rayon (float): _description_
+            actif (bool, optional): _description_. Defaults to True.
+            distance (float, optional): _description_. Defaults to 0.0.
+            periode (float, optional): _description_. Defaults to 0.0.
+            phase (float, optional): _description_. Defaults to 0.0.
+            parent (_type_, optional): _description_. Defaults to None.
+
+        Raises:
+            ValueError: _description_
+            ValueError: _description_
+            ValueError: _description_
+        """
         super().__init__(nom, masse, couleur, taille, rayon, actif)
         try:
             self.distance = float(distance)
@@ -116,6 +134,8 @@ class AstreFixe(Astre):
         #Angle en radians au temps t : theta = 2*pi*t/T + phase (l'angle reste égal à la phase si T = 0).
         #La phase est donnée en degrés, on la convertit en radians pour cos et sin.
         t = self._temps(t)
+        #np.radians convertit des degrés en radians : https://numpy.org/doc/stable/reference/generated/numpy.radians.html
+        #np.pi vaut 3.14159... : https://numpy.org/doc/stable/reference/constants.html
         phase = np.radians(self.phase)
         if self.periode > 0:
             return 2 * np.pi * t / self.periode + phase
@@ -125,15 +145,10 @@ class AstreFixe(Astre):
         #Position r(t) = centre + d * (cos(theta), sin(theta)), le centre étant (0, 0) ou le parent.
         theta = self._angle(t)
         centre = np.zeros(2) if self.parent is None else self.parent.position(t)
+        #np.array crée le vecteur [x, y] ; np.cos et np.sin prennent un angle en radians
+        #https://numpy.org/doc/stable/reference/generated/numpy.array.html
+        #https://numpy.org/doc/stable/reference/generated/numpy.cos.html
         return centre + self.distance * np.array([np.cos(theta), np.sin(theta)])
-
-    def vitesse(self, t: float) -> np.ndarray:
-        #Vitesse en UA/jour, dérivée de la position : v(t) = (2*pi/T) * d * (-sin(theta), cos(theta)).
-        v_parent = np.zeros(2) if self.parent is None else self.parent.vitesse(t)
-        if self.periode <= 0 or self.distance == 0:
-            return v_parent
-        theta = self._angle(t)
-        return v_parent + (2 * np.pi / self.periode) * self.distance * np.array([-np.sin(theta), np.cos(theta)])
 
     @classmethod
     def depuis_ligne(cls, ligne):
@@ -145,6 +160,8 @@ class AstreFixe(Astre):
             raise ValueError("Ligne CSV invalide : la colonne « nom » est manquante") from None
 
         def nombre(cle, defaut=0.0):
+            #ligne.get(cle, defaut) : la valeur de la colonne, ou defaut si la colonne n'existe pas
+            #(marche pour un dictionnaire et pour une ligne pandas) : https://pandas.pydata.org/docs/reference/api/pandas.Series.get.html
             valeur = ligne.get(cle, defaut)
             if valeur is None or str(valeur).strip() == "":
                 return defaut
@@ -152,6 +169,8 @@ class AstreFixe(Astre):
                 valeur = float(valeur)
             except (TypeError, ValueError):
                 raise ValueError(f"Astre « {nom} », colonne « {cle} » : « {valeur} » n'est pas un nombre") from None
+            #np.isnan : vrai si la valeur est NaN, ce que pandas met dans une case vide du CSV
+            #https://numpy.org/doc/stable/reference/generated/numpy.isnan.html
             return defaut if np.isnan(valeur) else valeur
 
         return cls(
@@ -165,6 +184,3 @@ class AstreFixe(Astre):
             periode=nombre("periode"),
             phase=nombre("phase"),
         )
-
-    def __str__(self):
-        return f"AstreFixe(nom={self.nom}, masse={self.masse}, distance={self.distance}, periode={self.periode}, phase={self.phase}, actif={self.actif})"
