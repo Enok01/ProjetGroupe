@@ -11,9 +11,9 @@ class TempsMaximumAtteinte(Exception):
 class DebutHistorique(Exception):
     """Exception si le temps du pas est plus petit que le temps d'apparitions"""
     def init(self, message):
-        super().init(message)
+        super().__init__(message)
 
 class FinHistorique(Exception):
     """Exception si le temps du pas est plus grand que le temps d'apparitions"""
     def init(self, message):
-        super().init(message)
+        super().__init__(message)

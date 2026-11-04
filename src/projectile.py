@@ -4,7 +4,6 @@ ce module contient la classe Projectile qui représente un projectile,
 
 """
 import numpy as np
-from src.exceptions import DebutHistorique , FinHistorique
 
 from src.astre import Astre
 from src.exceptions import DebutHistorique, FinHistorique
