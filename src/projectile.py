@@ -90,9 +90,10 @@ class Projectile(Astre):
                 pas (int): Pas de la simulation (1 pas = 1 journée).
 
                 Returns:
-                np.ndarray: [x, y, vx, vy]. Retourne l'état de départ avant l'apparition
-                et le dernier état connu si le pas dépasse les pas calculés.
-        
+                np.ndarray: [x, y, vx, vy]. Retourne l'état au pas demandé
+                Raises:
+                    DebutHistorique: Si le pas est avant l'apparition du projectile.
+                    FinHistorique: Si le pas dépasse les pas déjà calculés.        
                 """
                 if pas < self.temps_apparition:
                     raise DebutHistorique("Le projectile n'a pas encore été créé")  # Retourne l'état initial avant l'apparition
