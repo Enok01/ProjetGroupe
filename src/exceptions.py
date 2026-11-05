@@ -10,10 +10,10 @@ class TempsMaximumAtteinte(Exception):
 
 class DebutHistorique(Exception):
     """Exception si le temps du pas est plus petit que le temps d'apparitions"""
-    def init(self, message):
+    def __init__(self, message):
         super().__init__(message)
 
 class FinHistorique(Exception):
     """Exception si le temps du pas est plus grand que le temps d'apparitions"""
-    def init(self, message):
+    def __init__(self, message):
         super().__init__(message)
