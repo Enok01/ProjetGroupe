@@ -6,6 +6,8 @@ ce module contient la classe Projectile qui représente un projectile,
 import numpy as np
 
 from src.astre import Astre
+from src.exceptions import DebutHistorique, FinHistorique
+
 
 class Projectile(Astre):
     def __init__(self,nom, masse, couleur, taille, rayon,pos0,
@@ -68,17 +70,21 @@ class Projectile(Astre):
                 """
 
     def position(self, t):
-                """
-                Calcule la position du projectile à un instant donné t.
+        """
+        Calcule la position du projectile à un instant donné t.
 
-                Args:
-                    t (float): Temps de la simulation, en jours (1 pas = 1 journée)
+        Args:
+            t (float): Temps de la simulation, en jours (1 pas = 1 journée)
 
-                Returns:
-                    np.array: Position du projectile à l'instant t.
-                """
-
-                return self.etat_a(t)[:2]  # Retourne seulement les coordonnées x et y de l'état complet à l'instant t
+        Returns:
+            np.array: Position du projectile à l'instant t.
+        """
+        try:
+            return self.etat_a(t)[:2]  # Retourne seulement les coordonnées x et y de l'état complet à l'instant t
+        except DebutHistorique as e:
+            raise DebutHistorique(str(e))
+        except FinHistorique as e:
+            raise FinHistorique(str(e))
 
 
     def etat_a(self, pas):
@@ -89,15 +95,16 @@ class Projectile(Astre):
                 pas (int): Pas de la simulation (1 pas = 1 journée).
 
                 Returns:
-                np.ndarray: [x, y, vx, vy]. Retourne l'état de départ avant l'apparition
-                et le dernier état connu si le pas dépasse les pas calculés.
-        
+                np.ndarray: [x, y, vx, vy]. Retourne l'état au pas demandé
+                Raises:
+                    DebutHistorique: Si le pas est avant l'apparition du projectile.
+                    FinHistorique: Si le pas dépasse les pas déjà calculés.        
                 """
                 if pas < self.temps_apparition:
-                    return self.historique[0]  # Retourne l'état initial avant l'apparition
+                    raise DebutHistorique("Le projectile n'a pas encore été créé")  # Retourne l'état initial avant l'apparition
                 
                 ligne = int(pas - self.temps_apparition)  # Nombre de pas depuis l'apparition
 
                 if ligne < len(self.historique):
                     return self.historique[ligne]  # Retourne ligne conplete
-                return self.historique[-1]  # Retourne le dernier état connu si le pas dépasse les pas calculés
+                raise FinHistorique("Le projectile ne s'est pas rendu là")  # Retourne le dernier état connu si le pas dépasse les pas calculés

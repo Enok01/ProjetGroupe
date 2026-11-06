@@ -10,17 +10,19 @@ Documentation officielle :
 """
 
 import os
-import tkinter.filedialog as tk_fd
-import tkinter.messagebox as tk_msgbx
+import tkinter.filedialog as filedialog
+import tkinter.messagebox as messagebox
 import customtkinter as ctk
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 
-from src.astre import Astre
-from src.chargeur_csv import sauvegarder
+from src.astre import Astre, AstreFixe
+from src.chargeur_csv import couleur_aleatoire, sauvegarder
+from src.projectile import Projectile
 from src.simulation import Simulation
+from src.exceptions import DebutHistorique, FinHistorique
 
 FOND = "#0f1424"   # bleu nuit derrière les astres
 
@@ -165,6 +167,9 @@ class VueGraphique(ctk.CTkFrame):
         # https://matplotlib.org/stable/api/figure_api.html
         self.fig = plt.Figure(figsize=(6, 6), facecolor=FOND)
         self.ax = self.fig.add_subplot(111)
+        # Marges fixes pour les titres des axes, réglées une seule fois (tight_layout à chaque image était lent)
+        # https://matplotlib.org/stable/api/_as_gen/matplotlib.figure.Figure.subplots_adjust.html
+        self.fig.subplots_adjust(left=0.1, right=0.97, top=0.94, bottom=0.08)
 
         # FigureCanvasTkAgg met la figure dans tkinter, NavigationToolbar2Tk ajoute les boutons zoom/déplacement
         # https://matplotlib.org/stable/api/backend_tk_api.html
@@ -190,12 +195,12 @@ class VueGraphique(ctk.CTkFrame):
 
         actifs = [objet for objet in list(astres) + list(projectiles) if objet.actif]
 
-        # Vue carrée qui contient l'objet le plus loin (+10 %)
-        limite = 1.1 * max([np.linalg.norm(objet.position(t)) for objet in actifs] + [1])
+        # Vue carrée qui contient l'astre le plus loin (+10 %)
+        limite = 1.1 * max([np.linalg.norm(objet.position(t)) for objet in actifs if isinstance(objet, AstreFixe)] + [1])
 
         # Axes.set : https://matplotlib.org/stable/api/_as_gen/matplotlib.axes.Axes.set.html
         ax.set(xlim=(-limite, limite), ylim=(-limite, limite), aspect="equal", facecolor=FOND,
-               title=f"t = {t:.1f} jours", xlabel="x (UA)", ylabel="y (UA)")
+               title=f"t = {t} jours", xlabel="x (UA)", ylabel="y (UA)")
 
         # Texte en gris clair, sinon il est noir sur le fond bleu nuit
         # tick_params : https://matplotlib.org/stable/api/_as_gen/matplotlib.axes.Axes.tick_params.html
@@ -212,19 +217,47 @@ class VueGraphique(ctk.CTkFrame):
                         linewidth=0.8, alpha=0.7)
 
         for objet in actifs:
-            x, y = objet.position(t)
-            if objet in astres and objet.distance > 0:
-                # Circle + add_patch : cercle de l'orbite autour du Soleil ou du parent
-                # https://matplotlib.org/stable/api/_as_gen/matplotlib.patches.Circle.html
-                centre = objet.parent.position(t) if objet.parent else (0, 0)
-                ax.add_patch(plt.Circle(centre, objet.distance, fill=False, color=objet.couleur, alpha=0.4))
             # np.sqrt : racine carrée, pour que le Soleil (taille 109) ne cache pas tout
             taille = max(8, 20 * np.sqrt(objet.taille)) if objet in astres else 25
 
-            # scatter dessine un point, annotate écrit un texte à côté
-            ax.scatter(x, y, taille, objet.couleur, zorder=3)
-            ax.annotate(objet.nom, (x, y), xytext=(4, 2), textcoords="offset points", color="white", fontsize=7)
-        self.fig.tight_layout()  # laisse la place aux titres des axes
+            if objet in astres:
+                x, y = objet.position(t)
+
+                if objet.distance > 0:
+                    # Circle + add_patch : cercle de l'orbite autour du Soleil ou du parent
+                    # https://matplotlib.org/stable/api/_as_gen/matplotlib.patches.Circle.html
+                    centre = objet.parent.position(t) if objet.parent else (0, 0)
+                    ax.add_patch(plt.Circle(centre, objet.distance, fill=False, color=objet.couleur, alpha=0.4))
+
+                # np.sqrt : racine carrée, pour que le Soleil (taille 109) ne cache pas tout
+                taille = max(8, 20 * np.sqrt(objet.taille)) if objet in astres else 25
+
+                # scatter dessine un point, annotate écrit un texte à côté
+                ax.scatter(x, y, taille, objet.couleur, zorder=3)
+                ax.annotate(objet.nom, (x, y), xytext=(4, 2), textcoords="offset points", color="white", fontsize=7)
+
+            elif objet in projectiles:
+                try:
+                    x, y = objet.position(t)
+                    ax.scatter(x, y, taille, objet.couleur, zorder=3)
+                    ax.annotate(objet.nom, (x, y), xytext=(4, 2), textcoords="offset points", color="white", fontsize=7)
+                except DebutHistorique:
+                    x, y = objet.pos0
+                    ax.scatter(x, y, taille, objet.couleur, zorder=3, marker="*")
+                    ax.annotate(objet.nom, (x, y), xytext=(4, 2), textcoords="offset points", color="white", fontsize=7)
+                except FinHistorique:
+                    match objet.etat:
+                        case "expire":
+                            x, y = objet.historique[-1, 0], objet.historique[-1, 1]
+                        case "hors systeme":
+                            x, y = objet.historique[-1, 0], objet.historique[-1, 1]
+                        case "collision":
+                            x, y = objet.cible.position(t)
+                        case _:
+                            raise ValueError("État du projectile invalide!")
+                    ax.scatter(x, y, taille, objet.couleur, zorder=3, marker="x")
+                    ax.annotate(objet.nom, (x, y), xytext=(4, 2), textcoords="offset points", color="white", fontsize=7)
+
         self.canvas.draw_idle()  # redessine la figure dans la fenêtre dès que possible
 
 
@@ -271,8 +304,8 @@ class BarreControle(ctk.CTkFrame):
         self.master: FenetreSimulateur
 
         # CTkEntry (case où l'on écrit) : https://customtkinter.tomschimansky.com/documentation/widgets/entry
-        self.dt = ctk.CTkEntry(self, width=60)
-        self.dt.insert(0, "0.5")  # texte de départ
+        self.pas_temps = ctk.CTkEntry(self, width=60)
+        self.pas_temps.insert(0, "5")  # texte de départ
 
         # Défilement du temps
         self.defil = False
@@ -289,11 +322,11 @@ class BarreControle(ctk.CTkFrame):
             "avancer": bouton(self, "Avancer ▶", commande=self.__commande_avancer)
         }
         self.temps = texte(self, "", gras=True)
-        ligne_de_widgets(list(self.boutons.values()) + [texte(self, "dt (jours)"), self.dt, self.temps])
+        ligne_de_widgets(list(self.boutons.values()) + [texte(self, "pas de temps (jours)"), self.pas_temps, self.temps])
         self.afficher_temps(0)
 
-    def afficher_temps(self, t: float):
-        self.temps.configure(text=f"t = {t:.1f} jours")
+    def afficher_temps(self, t: int):
+        self.temps.configure(text=f"t = {t} jours")
 
     @property
     def t(self):
@@ -333,25 +366,69 @@ class BarreControle(ctk.CTkFrame):
 
     def __commande_avancer(self):
         """Avance de dt."""
-        self.t += float(self.dt.get())
+        self.t += int(self.pas_temps.get())
 
     def __commande_reculer(self):
         """Recule de dt."""
-        self.t -= float(self.dt.get())
-
-    def __commande_curseur(self, value):
-        """Met à jour le temps lorsque le slider est utilisé"""
-        if self.defil:
-            self.__commande_pause()
-        self.t = round(value)
+        self.t -= int(self.pas_temps.get())
 
     def mise_a_jour_lecture(self):
         """Met à jour le temps à chaque 0.1 seconde"""
         if self.defil and self.t < self.master.simulateur.temps_max():
-            self.t += float(self.dt.get())
-            self.after(100, self.mise_a_jour_lecture)
+            self.after(100, self.mise_a_jour_lecture)  # programmé avant de dessiner : l'attente et le dessin se chevauchent
+            self.t += int(self.pas_temps.get())
         else:
             self.__commande_pause()
+
+
+class FormulaireProjectile(ctk.CTkToplevel):
+    """
+    Fenêtre « Lancer un projectile » : on saisit la position et la vitesse, le projectile part au temps actuel.
+    La couleur est choisie automatiquement.
+
+    CTkToplevel (fenêtre secondaire) : https://customtkinter.tomschimansky.com/documentation/windows/toplevel
+    """
+
+    # (clé, libellé, valeur proposée) ; repère : vitesse circulaire à 1 UA ≈ 0,0172 UA/j
+    CHAMPS = (("nom", "Nom", "Projectile"), ("x0", "x (UA)", "1.5"), ("y0", "y (UA)", "0"),
+              ("vx0", "vx (UA/j)", "0"), ("vy0", "vy (UA/j)", "0.014"), ("masse", "Masse (MT)", "0.001"),
+              ("rayon", "Rayon (UA)", "0.000001"), ("duree_vie", "Durée de vie (jours)", "1000"))
+
+    def __init__(self, master, lancer):
+        super().__init__(master)
+        self.title("Lancer un projectile")
+        self.lancer = lancer  # fonction qui reçoit le nom et les nombres, et renvoie un message d'erreur ou None
+        self.entrees = {}
+        for ligne, (cle, libelle, defaut) in enumerate(self.CHAMPS):
+            texte(self, libelle).grid(row=ligne, column=0, padx=12, pady=3, sticky="w")
+            self.entrees[cle] = ctk.CTkEntry(self, width=160)
+            self.entrees[cle].insert(0, defaut)
+            self.entrees[cle].grid(row=ligne, column=1, padx=12, pady=3)
+        self.erreur = ctk.CTkLabel(self, text="", text_color="#FF6B6B", wraplength=300)
+        self.erreur.grid(row=len(self.CHAMPS), column=0, columnspan=2, padx=12)
+        bouton(self, "Lancer", self.valider).grid(row=len(self.CHAMPS) + 1, column=0, columnspan=2, pady=10)
+        self.after(100, self.grab_set)  # garde clavier et souris sur le formulaire une fois affiché
+
+    def valider(self):
+        """Vérifie les champs ; ferme la fenêtre si le projectile a été lancé, sinon affiche l'erreur."""
+        nom = self.entrees["nom"].get().strip()
+        try:
+            # replace : accepte aussi la virgule décimale (1,5)
+            nombres = {cle: float(entree.get().replace(",", ".")) for cle, entree in self.entrees.items() if cle != "nom"}
+        except ValueError:
+            nombres = None
+        if not nom:
+            erreur = "Le nom est obligatoire."
+        elif nombres is None:
+            erreur = "Position, vitesse, masse, rayon et durée de vie doivent être des nombres."
+        elif nombres["duree_vie"] <= 0:
+            erreur = "La durée de vie doit être strictement positive."
+        else:
+            erreur = self.lancer(nom, nombres)
+        if erreur:
+            self.erreur.configure(text=erreur)
+        else:
+            self.destroy()
 
 
 class FenetreSimulateur(ctk.CTk):
@@ -362,13 +439,13 @@ class FenetreSimulateur(ctk.CTk):
 
     def __init__(self):
         super().__init__()
-        self.title("Simulateur de projectiles spatiaux")
+        self.title("AstroLab : Simulateur de projectiles dans l'espace")
         self.geometry("1400x800")
         self.protocol("WM_DELETE_WINDOW", self.quit)  # NE PAS ENLEVER : ferme proprement la fenêtre
 
         self.simulateur = Simulation()
         self.barre_haut = BarreHaut(self, ouvrir=self.ouvrir_csv, enregistrer=self.enregistrer_csv,
-                                    lancer=self.lancer_projectiles)
+                                    lancer=lambda: FormulaireProjectile(self, self.lancer_projectile))
         self.gestionnaire = GestionnaireObjets(self)
         self.vue = VueGraphique(self)
         self.details = DetailsProjectile(self, exporter=self.exporter_trajectoire)
@@ -440,44 +517,59 @@ class FenetreSimulateur(ctk.CTk):
         """Demande un fichier CSV et le charge dans la simulation."""
         # askopenfilename renvoie le chemin choisi ("" si annulé)
         # https://docs.python.org/3/library/dialog.html#tkinter.filedialog.askopenfilename
-        chemin = tk_fd.askopenfilename(filetypes=[("Fichiers CSV", "*.csv")], parent=self)
+        chemin = filedialog.askopenfilename(filetypes=[("Fichiers CSV", "*.csv")], parent=self)
         if not chemin:
             return
         try:
             self.charger(chemin)
         except (OSError, KeyError, ValueError) as erreur:  # OSError couvre FileNotFoundError et PermissionError
-            tk_msgbx.showerror("Le chargement a échoué !", str(erreur), parent=self)
+            messagebox.showerror("Le chargement a échoué !", str(erreur), parent=self)
 
     def enregistrer_csv(self):
         """Demande où enregistrer, puis écrit les astres et projectiles dans un CSV rechargeable."""
         # asksaveasfilename : defaultextension ajoute .csv si oublié
         # https://docs.python.org/3/library/dialog.html#tkinter.filedialog.asksaveasfilename
-        chemin = tk_fd.asksaveasfilename(defaultextension=".csv", filetypes=[("Fichiers CSV", "*.csv")], parent=self)
+        chemin = filedialog.asksaveasfilename(defaultextension=".csv", filetypes=[("Fichiers CSV", "*.csv")], parent=self)
         if not chemin:
             return
         try:
             sauvegarder(self.simulateur, chemin)
         except (OSError, ValueError) as erreur:
-            tk_msgbx.showerror("L'enregistrement a échoué !", str(erreur), parent=self)
+            messagebox.showerror("L'enregistrement a échoué !", str(erreur), parent=self)
 
-    def lancer_projectiles(self):
-        """Recalcule la trajectoire de chaque projectile actif, puis redessine au temps actuel."""
-        if not self.simulateur.astres or not self.simulateur.projectiles:
-            tk_msgbx.showinfo("Lancer un projectile",
-                              "Ouvre d'abord un CSV qui contient des astres et au moins un projectile.", parent=self)
-            return
+    def lancer_projectile(self, nom: str, n: dict):
+        """
+        Lance au temps actuel le projectile saisi dans le formulaire, avec une couleur choisie automatiquement.
+
+        :param nom: Nom du projectile
+        :param n: Nombres saisis (x0, y0, vx0, vy0, masse, rayon, duree_vie)
+        :return: Un message d'erreur, ou None si le projectile a été lancé
+        """
+        if not self.simulateur.astres:
+            return "Ouvrez d'abord un CSV qui contient des astres."
+        objets = self.simulateur.astres + self.simulateur.projectiles
+        if nom in [objet.nom for objet in objets]:
+            return f"Le nom « {nom} » est déjà utilisé."
+        couleur = couleur_aleatoire({objet.couleur for objet in objets})  # différente des couleurs déjà prises
+        try:
+            projectile = Projectile(nom, n["masse"], couleur, 0.5, n["rayon"], (n["x0"], n["y0"]), (n["vx0"], n["vy0"]),
+                                    self.barre_controle.t, n["duree_vie"])
+        except ValueError as erreur:  # masse ou rayon négatifs
+            return str(erreur)
+        self.simulateur.projectiles.append(projectile)
         self.simulateur.recalculer()
         self.afficher(*self.simulateur.astres_et_projectiles, self.cache["nom_fichier"], self.barre_controle.t)
+        return None
 
     def exporter_trajectoire(self):
         """Écrit la trajectoire du projectile choisi dans un CSV : une ligne par jour (t, x, y, vx, vy)."""
         nom = self.details.choix.get()
         projectile = next((p for p in self.simulateur.projectiles if p.nom == nom), None)
         if projectile is None or len(projectile.historique) < 2:
-            tk_msgbx.showinfo("Exporter la trajectoire", "Aucune trajectoire calculée pour ce projectile.", parent=self)
+            messagebox.showinfo("Exporter la trajectoire", "Aucune trajectoire calculée pour ce projectile.", parent=self)
             return
-        chemin = tk_fd.asksaveasfilename(defaultextension=".csv", filetypes=[("Fichiers CSV", "*.csv")],
-                                         initialfile=f"trajectoire_{nom}.csv", parent=self)
+        chemin = filedialog.asksaveasfilename(defaultextension=".csv", filetypes=[("Fichiers CSV", "*.csv")],
+                                              initialfile=f"trajectoire_{nom}.csv", parent=self)
         if not chemin:
             return
         # Une ligne de l'historique par jour depuis l'apparition, d'où t = temps_apparition + numéro de ligne
@@ -487,7 +579,7 @@ class FenetreSimulateur(ctk.CTk):
         try:
             trajectoire.to_csv(chemin, index=False)
         except OSError as erreur:
-            tk_msgbx.showerror("L'export a échoué !", str(erreur), parent=self)
+            messagebox.showerror("L'export a échoué !", str(erreur), parent=self)
 
 
 # Aperçu de l'interface : « python -m src.graphique » depuis la racine du projet

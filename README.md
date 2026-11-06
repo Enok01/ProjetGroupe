@@ -1,4 +1,4 @@
-# Simulateur de projectiles dans l'espace
+# AstroLab : Simulateur de projectiles dans l'espace
 
 *Par Demba Cissé, Liam Feller, Marc-Antoine Gauthier et Levy Loïk Enok Koutoua dans le cadre du cours de Développement d'Applications dans un Environnement Graphique*
 
@@ -34,13 +34,13 @@ Chaque fichier a un responsable ; pour modifier le fichier d'un autre membre, on
 
 Unités utilisées dans tout le programme :
 
-| Grandeur | Unité |
-|---|---|
-| Distance, position | UA (unité astronomique) |
-| Temps | jour |
-| Masse | masse terrestre (Terre = 1) |
-| Vitesse | UA / jour |
-| G | ≈ 8,888 × 10⁻¹⁰ UA³ / (masse terrestre · jour²) |
+| Grandeur           | Unité                                           |
+|--------------------|-------------------------------------------------|
+| Distance, position | UA (unité astronomique)                         |
+| Temps              | jour                                            |
+| Masse              | masse terrestre (Terre = 1)                     |
+| Vitesse            | UA / jour                                       |
+| G                  | ≈ 8,888 × 10⁻¹⁰ UA³ / (masse terrestre · jour²) |
 
 ## Format du fichier CSV  
 
@@ -51,4 +51,4 @@ Un seul fichier décrit les astres et les projectiles ; la colonne `type` indiqu
 
 - `main` : version stable, qui démarre fonctione.
 - `dev` : intégration du travail terminé de tous.
-- Une branche  par tâche, créée à partir de `dev`, puis fusionnée dans `dev` par pull request relue par un ou plusieurs membres.
+- Une branche par tâche, créée à partir de `dev`, puis fusionnée dans `dev` par pull request relue par un ou plusieurs membres.

@@ -6,23 +6,6 @@ Documentation officielle :
     classes abstraites (abc) : https://docs.python.org/3/library/abc.html
     pandas Series.get (lecture d'une ligne du CSV) : https://pandas.pydata.org/docs/reference/api/pandas.Series.get.html
 """
-
-"""_summary_
-
-    Raises:
-        ValueError: _description_
-        ValueError: _description_
-        ValueError: _description_
-        ValueError: _description_
-        ValueError: _description_
-        ValueError: _description_
-        ValueError: _description_
-        ValueError: _description_
-        ValueError: _description_
-
-    Returns:
-        _type_: _description_
-"""
 from abc import ABC, abstractmethod
 
 import numpy as np
@@ -93,52 +76,6 @@ class Astre(ABC):
     def position(self, t: float) -> np.ndarray:
         #Renvoie la position (x, y) en UA au temps t (jours), tableau numpy de forme (2,).
         pass
-
-    def distance_a(self, point, t: float) -> float:
-        """_summary_
-
-        Args:
-            point (_type_): _description_
-            t (float): _description_
-
-        Returns:
-            float: _description_
-        """
-        #Distance en UA entre le centre de l'objet au temps t et un point (x, y).
-        #np.asarray transforme le point (liste ou tuple) en tableau numpy pour pouvoir soustraire
-        #https://numpy.org/doc/stable/reference/generated/numpy.asarray.html
-        #np.linalg.norm donne la longueur du vecteur : racine(dx² + dy²)
-        #https://numpy.org/doc/stable/reference/generated/numpy.linalg.norm.html
-        return float(np.linalg.norm(np.asarray(point, dtype=float) - self.position(t)))
-
-    def contient(self, point, t: float) -> bool:
-        #Vrai si le point (x, y) est à l'intérieur du rayon de collision au temps t (sert à détecter les collisions).
-        return self.distance_a(point, t) < self.rayon
-
-    def acceleration_sur(self, point, t: float) -> np.ndarray:
-        """_summary_
-
-        Args:
-            point (_type_): _description_
-            t (float): _description_
-
-        Returns:
-            np.ndarray: _description_
-        """
-        #Accélération gravitationnelle (UA/jour²) que l'objet exerce sur un point (x, y) au temps t :
-        #a = G * M * (r_astre - r) / ||r_astre - r||³. Un objet inactif ou sans masse n'attire pas.
-        if not self.actif or self.masse == 0:
-            #np.zeros(2) : le vecteur nul [0, 0] : https://numpy.org/doc/stable/reference/generated/numpy.zeros.html
-            return np.zeros(2)
-        ecart = self.position(t) - np.asarray(point, dtype=float)
-        distance = np.linalg.norm(ecart)
-        if distance == 0:
-            #Point au centre exact : la force n'est pas définie, on renvoie zéro pour éviter la division par 0
-            return np.zeros(2)
-        return G * self.masse * ecart / distance ** 3
-
-    def __str__(self):
-        return f"Astre(nom={self.nom}, masse={self.masse}, couleur={self.couleur}, taille={self.taille}, rayon={self.rayon}, actif={self.actif})"
 
 
 class AstreFixe(Astre):
@@ -213,14 +150,6 @@ class AstreFixe(Astre):
         #https://numpy.org/doc/stable/reference/generated/numpy.cos.html
         return centre + self.distance * np.array([np.cos(theta), np.sin(theta)])
 
-    def vitesse(self, t: float) -> np.ndarray:
-        #Vitesse en UA/jour, dérivée de la position : v(t) = (2*pi/T) * d * (-sin(theta), cos(theta)).
-        v_parent = np.zeros(2) if self.parent is None else self.parent.vitesse(t)
-        if self.periode <= 0 or self.distance == 0:
-            return v_parent
-        theta = self._angle(t)
-        return v_parent + (2 * np.pi / self.periode) * self.distance * np.array([-np.sin(theta), np.cos(theta)])
-
     @classmethod
     def depuis_ligne(cls, ligne):
         #Crée un AstreFixe à partir d'une ligne du CSV (dictionnaire ou ligne pandas).
@@ -255,11 +184,3 @@ class AstreFixe(Astre):
             periode=nombre("periode"),
             phase=nombre("phase"),
         )
-
-    def __str__(self):
-        """_summary_
-
-        Returns:
-            _type_: _description_
-        """
-        return f"AstreFixe(nom={self.nom}, masse={self.masse}, distance={self.distance}, periode={self.periode}, phase={self.phase}, actif={self.actif})"
