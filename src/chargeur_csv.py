@@ -32,7 +32,6 @@ def lire_csv(fichier):
     """
     try:
         fichier = resource_path(fichier)
-        print("Chemin CSV :", fichier)
         df = pd.read_csv(fichier)
        
     except FileNotFoundError:
