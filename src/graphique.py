@@ -439,7 +439,7 @@ class FenetreSimulateur(ctk.CTk):
 
     def __init__(self):
         super().__init__()
-        self.title("Simulateur de projectiles spatiaux")
+        self.title("AstroLab : Simulateur de projectiles dans l'espace")
         self.geometry("1400x800")
         self.protocol("WM_DELETE_WINDOW", self.quit)  # NE PAS ENLEVER : ferme proprement la fenêtre
 

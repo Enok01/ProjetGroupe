@@ -1,4 +1,4 @@
-# Simulateur de projectiles dans l'espace
+# AstroLab : Simulateur de projectiles dans l'espace
 
 *Par Demba Cissé, Liam Feller, Marc-Antoine Gauthier et Levy Loïk Enok Koutoua dans le cadre du cours de Développement d'Applications dans un Environnement Graphique*
 
