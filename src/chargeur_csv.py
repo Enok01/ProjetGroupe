@@ -1,3 +1,5 @@
+import os
+import sys
 import pandas as pd
 import random
 from matplotlib.colors import is_color_like, to_hex
@@ -8,8 +10,17 @@ from src.projectile import Projectile
 COLONNES_communes = ["nom", "masse", "couleur", "taille", "rayon", "actif"]
 COLONNES_fixes = ["distance", "periode", "phase", "parent"]
 COLONNES_projectiles = ["x0", "y0", "vx0", "vy0", "temps_apparition", "duree_vie"]
-COLONNES_tous = ["type"]+COLONNES_communes + COLONNES_fixes + COLONNES_projectiles
+COLONNES_tous = ["type"]+COLONNES_communes + COLONNES_fixes + COLONNES_projectiles 
 
+def resource_path(relative_path):
+    """Fonction compatible PyInstaller."""
+    
+    try:
+        base_path = sys._MEIPASS
+    except AttributeError:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)
 
 def lire_csv(fichier):
     """
@@ -20,6 +31,8 @@ def lire_csv(fichier):
         pd.DataFrame: une ligne par objet.
     """
     try:
+        fichier = resource_path(fichier)
+        print("Chemin CSV :", fichier)
         df = pd.read_csv(fichier)
        
     except FileNotFoundError:

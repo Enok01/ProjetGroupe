@@ -9,7 +9,6 @@ Documentation officielle :
     placement grid : https://tkdocs.com/tutorial/grid.html
 """
 
-import os
 import tkinter.filedialog as filedialog
 import tkinter.messagebox as messagebox
 import customtkinter as ctk
@@ -19,7 +18,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 
 from src.astre import Astre, AstreFixe
-from src.chargeur_csv import couleur_aleatoire, sauvegarder
+from src.chargeur_csv import couleur_aleatoire, sauvegarder, os
 from src.projectile import Projectile
 from src.simulation import Simulation
 from src.exceptions import DebutHistorique, FinHistorique
